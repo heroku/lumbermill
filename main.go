@@ -69,7 +69,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 	for lp.Next() {
-		switch string(lp.Header().Name) {
+		switch string(lp.Header().Procid) {
 		case "router":
 			rm := routerMsg{}
 			err := logfmt.Unmarshal(lp.Bytes(), &rm)
@@ -87,7 +87,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		default:
-			log.Printf("other: %+v\n", lp.Header())
+			//log.Printf("other: %+v\n", lp.Header())
 		}
 	}
 
