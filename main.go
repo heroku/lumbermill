@@ -64,6 +64,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	series := make([]*influx.Series, 0)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	//dynoSeries := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -97,7 +98,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		default:
-			//log.Printf("other: %+v\n", lp.Header())
+			log.Printf("other: %+v\n", lp.Header())
 		}
 	}
 
