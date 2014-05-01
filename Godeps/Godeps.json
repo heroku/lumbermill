@@ -3,6 +3,10 @@
 	"GoVersion": "go1.2.1",
 	"Deps": [
 		{
+			"ImportPath": "github.com/bmizerany/lpx",
+			"Rev": "af85cf24c1567bcb5a2e4c21597cc049eab31f55"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/inject",
 			"Rev": "9aea7a2fa5b79ef7fc00f63a575e72df33b4e886"
 		},
@@ -10,6 +14,14 @@
 			"ImportPath": "github.com/go-martini/martini",
 			"Comment": "v1.0-rc1",
 			"Rev": "de643861770082784ad14cba4557ad68568dcc7b"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb-go",
+			"Rev": "86c469e06dbe73919223d85606e038cb66c020c3"
+		},
+		{
+			"ImportPath": "github.com/kr/logfmt",
+			"Rev": "6df6d8c89fdf56b969d91e58f86e3ee494fcdeb7"
 		}
 	]
 }
