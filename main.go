@@ -95,6 +95,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		routerSeries.Name = "router." + id
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
+
+		err := influxClient.WriteSeries(series)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	//data, err := json.Marshal(series)
@@ -104,10 +109,6 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	//fmt.Println(string(data))
 	//}
 
-	err := influxClient.WriteSeries(series)
-	if err != nil {
-		fmt.Println(err)
-	}
 }
 
 func main() {
