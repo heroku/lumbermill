@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -42,13 +43,13 @@ func init() {
 	var err error
 
 	influxClientConfig = influx.ClientConfig{
-		Host:     "influxor.ssl.edward.herokudev.com:8086",
-		Username: "test",
-		Password: "tester",
-		Database: "ingress",
+		Host:     os.Getenv("INFLUXDB_HOST"), //"influxor.ssl.edward.herokudev.com:8086",
+		Username: os.Getenv("INFLUXDB_USER"), //"test",
+		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
+		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
 		IsSecure: true,
 		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
 				ResponseHeaderTimeout: 5 * time.Second,
 				Dial: func(network, address string) (net.Conn, error) {
 					return net.DialTimeout(network, address, 5*time.Second)
