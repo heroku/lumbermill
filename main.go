@@ -92,7 +92,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					routerSeries.Points = append(
 						routerSeries.Points,
-						[]interface{}{t.UnixNano() / int64(time.Millisecond), rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+						[]interface{}{t.UnixNano() / int64(time.Microsecond), rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
 					)
 				}
 			}
@@ -106,7 +106,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
 
-		err := influxClient.WriteSeries(series)
+		err := influxClient.WriteSeriesWithTimePrecision(series, influx.Microsecond)
 		if err != nil {
 			fmt.Println(err)
 		}
