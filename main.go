@@ -84,7 +84,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
 				continue
 			}
-			timestamp := t.Unix() / int64(time.Millisecond)
+			timestamp := t.UnixNano() / int64(time.Microsecond)
 
 			pid := string(header.Procid)
 			switch pid {
@@ -160,7 +160,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(series) > 0 {
-		err := influxClient.WriteSeries(series)
+		err := influxClient.WriteSeriesWithTimePrecision(series, influx.Microsecond)
 		if err != nil {
 			fmt.Println(err)
 		}
