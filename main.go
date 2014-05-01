@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -31,8 +32,10 @@ type routerMsg struct {
 }
 
 var (
-	influxClientConfig influx.ClientConfig
-	influxClient       *influx.Client
+	influxClientConfig  influx.ClientConfig
+	influxClient        *influx.Client
+	dynoMemMsgSentinal  = []byte("sample#memory_total")
+	dynoLoadMsgSentinal = []byte("sample#load_avg_1m")
 )
 
 func init() {
@@ -64,7 +67,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	series := make([]*influx.Series, 0)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
-	dynoSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -104,20 +108,35 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					)
 				}
 			default:
-				dm := dynoMsg{}
-				err := logfmt.Unmarshal(lp.Bytes(), &dm)
-				if err != nil {
-					log.Printf("logfmt unmarshal error: %s\n", err)
-				} else {
-					if dm.MemoryCache == 0 && dm.MemoryRSS == 0 && dm.MemoryPgpgin == 0 && dm.MemoryPgpgout == 0 && dm.MemoryRSS == 0 && dm.MemorySwap == 0 && dm.MemoryTotal == 0 {
-						fmt.Println(string(lp.Bytes()))
+				msg := lp.Bytes()
+				switch {
+				case bytes.Contains(msg, dynoMemMsgSentinal):
+					dm := dynoMemMsg{}
+					err := logfmt.Unmarshal(lp.Bytes(), &dm)
+					if err != nil {
+						log.Printf("logfmt unmarshal error: %s\n", err)
+					} else {
+						if dm.Source != "" {
+							dynoMemSeries.Points = append(
+								dynoMemSeries.Points,
+								[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
+							)
+						}
 					}
-					if dm.Source != "" {
-						dynoSeries.Points = append(
-							dynoSeries.Points,
-							[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
-						)
+				case bytes.Contains(msg, dynoLoadMsgSentinal):
+					dm := dynoLoadMsg{}
+					err := logfmt.Unmarshal(lp.Bytes(), &dm)
+					if err != nil {
+						log.Printf("logfmt unmarshal error: %s\n", err)
+					} else {
+						if dm.Source != "" {
+							dynoLoadSeries.Points = append(
+								dynoLoadSeries.Points,
+								[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
+							)
+						}
 					}
+
 				}
 			}
 		}
@@ -129,10 +148,15 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		series = append(series, routerSeries)
 	}
 
-	if len(dynoSeries.Points) > 0 {
-		dynoSeries.Name = "dyno." + id
-		dynoSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
-		series = append(series, dynoSeries)
+	if len(dynoMemSeries.Points) > 0 {
+		dynoMemSeries.Name = "dyno.mem." + id
+		dynoMemSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
+		series = append(series, dynoMemSeries)
+	}
+	if len(dynoLoadSeries.Points) > 0 {
+		dynoLoadSeries.Name = "dyno.load." + id
+		dynoLoadSeries.Columns = []string{"time", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
+		series = append(series, dynoLoadSeries)
 	}
 
 	if len(series) > 0 {
