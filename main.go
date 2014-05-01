@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -87,7 +86,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		default:
-			fmt.Printf("other: %+v\n", lp.Header())
+			//fmt.Printf("other: %+v\n", lp.Header())
 		}
 	}
 
@@ -97,20 +96,17 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		series = append(series, routerSeries)
 	}
 
-	data, err := json.Marshal(series)
+	//data, err := json.Marshal(series)
+	//if err != nil {
+	//fmt.Println(err)
+	//} else {
+	//fmt.Println(string(data))
+	//}
+
+	err := influxClient.WriteSeries(series)
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Println(string(data))
 	}
-
-	err = influxClient.WriteSeries(series)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("posted!")
-	}
-
 }
 
 func main() {
