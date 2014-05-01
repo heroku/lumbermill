@@ -1,3 +1,7 @@
+# What
+
+Parse Heroku router / dyno logs and store data points about them
+
 ```
 heroku create -b https://github.com/kr/heroku-buildpack-go.git <name>
 heroku config:set INFLUXDB_HOST=".." \
