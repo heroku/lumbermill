@@ -65,6 +65,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
+	log.Println("id: " + id)
 
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 	for lp.Next() {
@@ -86,7 +87,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		default:
-			//fmt.Printf("other: %+v\n", lp.Header())
+			log.Printf("other: %+v\n", lp.Header())
 		}
 	}
 
