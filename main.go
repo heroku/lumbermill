@@ -109,6 +109,9 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Printf("logfmt unmarshal error: %s\n", err)
 				} else {
+					if dm.MemoryCache == 0 && dm.MemoryRSS == 0 && dm.MemoryPgpgin == 0 && dm.MemoryPgpgout == 0 && dm.MemoryRSS == 0 && dm.MemorySwap == 0 && dm.MemoryTotal == 0 {
+						fmt.Println(string(lp.Bytes()))
+					}
 					if dm.Source != "" {
 						dynoSeries.Points = append(
 							dynoSeries.Points,
