@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bmizerany/lpx"
@@ -80,9 +82,17 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				if e != nil {
 					log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
 				} else {
+					service, e := strconv.Atoi(strings.TrimSuffix(rm.Service, "ms"))
+					if e != nil {
+						log.Printf("Unable to Atoi on service time (%s): %s\n", rm.Service, e)
+					}
+					connect, e := strconv.Atoi(strings.TrimSuffix(rm.Connect, "ms"))
+					if e != nil {
+						log.Printf("Unable to Atoi on connect time (%s): %s\n", rm.Service, e)
+					}
 					routerSeries.Points = append(
 						routerSeries.Points,
-						[]interface{}{t.UnixNano() / int64(time.Millisecond), rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+						[]interface{}{t.UnixNano() / int64(time.Millisecond), rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
 					)
 				}
 			}
