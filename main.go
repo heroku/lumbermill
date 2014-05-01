@@ -64,7 +64,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	series := make([]*influx.Series, 0)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
-	//dynoSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoSeries := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -72,16 +72,23 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 	for lp.Next() {
-		switch string(lp.Header().Procid) {
-		case "router":
-			rm := routerMsg{}
-			err := logfmt.Unmarshal(lp.Bytes(), &rm)
-			if err != nil {
-				log.Printf("logfmt unmarshal error: %s\n", err)
-			} else {
-				t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
-				if e != nil {
-					log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
+		header := lp.Header()
+		switch string(header.Name) {
+		case "heroku":
+			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
+			if e != nil {
+				log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
+				continue
+			}
+			timestamp := t.Unix() / int64(time.Microsecond)
+
+			pid := string(header.Procid)
+			switch pid {
+			case "router":
+				rm := routerMsg{}
+				err := logfmt.Unmarshal(lp.Bytes(), &rm)
+				if err != nil {
+					log.Printf("logfmt unmarshal error: %s\n", err)
 				} else {
 					service, e := strconv.Atoi(strings.TrimSuffix(rm.Service, "ms"))
 					if e != nil {
@@ -93,12 +100,23 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					routerSeries.Points = append(
 						routerSeries.Points,
-						[]interface{}{t.UnixNano() / int64(time.Microsecond), rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+						[]interface{}{timestamp, rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
 					)
 				}
+			default:
+				dm := dynoMsg{}
+				err := logfmt.Unmarshal(lp.Bytes(), &dm)
+				if err != nil {
+					log.Printf("logfmt unmarshal error: %s\n", err)
+				} else {
+					if dm.Source != "" {
+						dynoSeries.Points = append(
+							dynoSeries.Points,
+							[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
+						)
+					}
+				}
 			}
-		default:
-			log.Printf("other: %+v\n", lp.Header())
 		}
 	}
 
@@ -106,7 +124,15 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		routerSeries.Name = "router." + id
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
+	}
 
+	if len(dynoSeries.Points) > 0 {
+		dynoSeries.Name = "dyno." + id
+		dynoSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
+		series = append(series, dynoSeries)
+	}
+
+	if len(series) > 0 {
 		err := influxClient.WriteSeriesWithTimePrecision(series, influx.Microsecond)
 		if err != nil {
 			fmt.Println(err)
