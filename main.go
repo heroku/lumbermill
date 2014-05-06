@@ -19,24 +19,9 @@ import (
 	"github.com/kr/logfmt"
 )
 
-type routerMsg struct {
-	Bytes     int
-	Status    int
-	Service   string
-	Connect   string
-	Dyno      string
-	Method    string
-	Path      string
-	Host      string
-	RequestId string
-	Fwd       string
-}
-
 var (
-	influxClientConfig  influx.ClientConfig
-	influxClient        *influx.Client
-	dynoMemMsgSentinal  = []byte("sample#memory_total")
-	dynoLoadMsgSentinal = []byte("sample#load_avg_1m")
+	influxClientConfig influx.ClientConfig
+	influxClient       *influx.Client
 )
 
 func init() {
