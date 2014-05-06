@@ -61,6 +61,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	log.Println("id: " + id)
 
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
+	defer r.Body.Close()
+
 	for lp.Next() {
 		header := lp.Header()
 		switch string(header.Name) {
@@ -151,6 +153,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 	}
+
+	w.WriteHeader(200)
 
 	//data, err := json.Marshal(series)
 	//if err != nil {
