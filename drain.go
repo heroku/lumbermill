@@ -54,6 +54,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	eventSeries := &influx.Series{Poinsts: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -79,54 +80,63 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				err := logfmt.Unmarshal(lp.Bytes(), &rm)
 				if err != nil {
 					log.Printf("logfmt unmarshal error: %s\n", err)
-				} else {
-					service, e := strconv.Atoi(strings.TrimSuffix(rm.Service, "ms"))
-					if e != nil {
-						log.Printf("Unable to Atoi on service time (%s): %s\n", rm.Service, e)
-					}
-					connect, e := strconv.Atoi(strings.TrimSuffix(rm.Connect, "ms"))
-					if e != nil {
-						log.Printf("Unable to Atoi on connect time (%s): %s\n", rm.Service, e)
-					}
-					routerSeries.Points = append(
-						routerSeries.Points,
-						[]interface{}{timestamp, rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
-					)
+					continue
 				}
+				service, e := strconv.Atoi(strings.TrimSuffix(rm.Service, "ms"))
+				if e != nil {
+					log.Printf("Unable to Atoi on service time (%s): %s\n", rm.Service, e)
+					continue
+				}
+				connect, e := strconv.Atoi(strings.TrimSuffix(rm.Connect, "ms"))
+				if e != nil {
+					log.Printf("Unable to Atoi on connect time (%s): %s\n", rm.Service, e)
+					continue
+				}
+				routerSeries.Points = append(
+					routerSeries.Points,
+					[]interface{}{timestamp, rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+				)
+
+				// Non router logs, so either dynos, runtime, etc
 			default:
 				msg := lp.Bytes()
 				switch {
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
-					code := msg[len(dynoErrorSentinel) : len(dynoErrorSentinel)+2]
-					log.Printf("code: %s\n", string(code))
+					byteCode := msg[len(dynoErrorSentinel) : len(dynoErrorSentinel)+2]
+					code, err := strconv.Atoi(string(byteCode))
+					if err != nil {
+						log.Printf("Unable to Atoi on dyno error code: %s", string(byteCode))
+						continue
+					}
+
+					log.Println("Code: %d, Dyno: %s\n", code, lp.Header().Name)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(lp.Bytes(), &dm)
 					if err != nil {
 						log.Printf("logfmt unmarshal error: %s\n", err)
-					} else {
-						if dm.Source != "" {
-							dynoMemSeries.Points = append(
-								dynoMemSeries.Points,
-								[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
-							)
-						}
+						continue
+					}
+					if dm.Source != "" {
+						dynoMemSeries.Points = append(
+							dynoMemSeries.Points,
+							[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
+						)
 					}
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(lp.Bytes(), &dm)
 					if err != nil {
 						log.Printf("logfmt unmarshal error: %s\n", err)
-					} else {
-						if dm.Source != "" {
-							dynoLoadSeries.Points = append(
-								dynoLoadSeries.Points,
-								[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
-							)
-						}
+						continue
 					}
-
+					if dm.Source != "" {
+						dynoLoadSeries.Points = append(
+							dynoLoadSeries.Points,
+							[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
+						)
+					}
 				}
 			}
 		}
