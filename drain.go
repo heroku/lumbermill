@@ -110,7 +110,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					eventSeries.Points = append(
 						eventSeries.Points,
-						[]interface{}{timestamp, lp.Header().Procid, "R", code, msg},
+						[]interface{}{timestamp, string(lp.Header().Procid), "R", code, string(msg)},
 					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
