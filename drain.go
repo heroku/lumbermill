@@ -50,11 +50,11 @@ func init() {
 
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 
-	series := make([]*influx.Series, 0)
+	series := make([]*influx.Series, 0, 4)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
-	//eventSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	eventSeries := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -108,8 +108,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("Unable to Atoi on dyno error code: %s", string(byteCode))
 						continue
 					}
-
-					log.Printf("Code: %d, Dyno: %s\n", code, lp.Header().Procid)
+					eventSeries.Points = append(
+						eventSeries.Points,
+						[]interface{}{timestamp, lp.Header().Procid, "R", code, msg},
+					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					dm := dynoMemMsg{}
@@ -157,6 +159,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		dynoLoadSeries.Name = "dyno.load." + id
 		dynoLoadSeries.Columns = []string{"time", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
 		series = append(series, dynoLoadSeries)
+	}
+
+	if len(eventSeries.Points) > 0 {
+		eventSeries.Name = "events." + id
+		eventSeries.Columns = []string{"time", "what", "type", "code", "message"}
+		series = append(series, eventSeries)
 	}
 
 	if len(series) > 0 {
