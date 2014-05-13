@@ -109,7 +109,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					log.Printf("Code: %d, Dyno: %s\n", code, lp.Header().Name)
+					log.Printf("Code: %d, Dyno: %s\n", code, lp.Header().Procid)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					dm := dynoMemMsg{}
