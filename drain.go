@@ -96,7 +96,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			default:
 				msg := lp.Bytes()
 				switch {
-				case bytes.Contains(msg, dynoMemMsgSentinal):
+				case bytes.HasPrefix(msg, dynoErrorSentinel):
+					code := msg[len(dynoErrorSentinel) : len(dynoErrorSentinel)+2]
+					log.Printf("code: %s\n", string(code))
+
+				case bytes.Contains(msg, dynoMemMsgSentinel):
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(lp.Bytes(), &dm)
 					if err != nil {
@@ -109,7 +113,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 							)
 						}
 					}
-				case bytes.Contains(msg, dynoLoadMsgSentinal):
+				case bytes.Contains(msg, dynoLoadMsgSentinel):
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(lp.Bytes(), &dm)
 					if err != nil {

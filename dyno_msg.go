@@ -18,8 +18,9 @@ var (
 	loadAvg1Min         = []byte("load_avg_1m")
 	loadAvg5Min         = []byte("load_avg_5m")
 	loadAvg15Min        = []byte("load_avg_15m")
-	dynoMemMsgSentinal  = []byte("sample#memory_total")
-	dynoLoadMsgSentinal = []byte("sample#load_avg_1m")
+	dynoMemMsgSentinel  = []byte("sample#memory_total")
+	dynoLoadMsgSentinel = []byte("sample#load_avg_1m")
+	dynoErrorSentinel   = []byte("Error R")
 )
 
 type dynoMemMsg struct {
