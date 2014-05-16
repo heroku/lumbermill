@@ -7,21 +7,36 @@ import (
 )
 
 var (
-	source              = []byte("source")
-	dyno                = []byte("dyno")
-	memoryTotal         = []byte("memory_total")
-	memoryRSS           = []byte("memory_rss")
-	memoryCache         = []byte("memory_cache")
-	memorySwap          = []byte("memory_swap")
-	memoryPgpgin        = []byte("memory_pgpgin")
-	memoryPgpgout       = []byte("memory_pgpgout")
-	loadAvg1Min         = []byte("load_avg_1m")
-	loadAvg5Min         = []byte("load_avg_5m")
-	loadAvg15Min        = []byte("load_avg_15m")
+	keySource           = []byte("source")
+	keyDyno             = []byte("dyno")
+	keyMemoryTotal      = []byte("memory_total")
+	keyMemoryRSS        = []byte("memory_rss")
+	keyMemoryCache      = []byte("memory_cache")
+	keyMemorySwap       = []byte("memory_swap")
+	keyMemoryPgpgin     = []byte("memory_pgpgin")
+	keyMemoryPgpgout    = []byte("memory_pgpgout")
+	keyLoadAvg1Min      = []byte("load_avg_1m")
+	keyLoadAvg5Min      = []byte("load_avg_5m")
+	keyLoadAvg15Min     = []byte("load_avg_15m")
 	dynoMemMsgSentinel  = []byte("sample#memory_total")
 	dynoLoadMsgSentinel = []byte("sample#load_avg_1m")
 	dynoErrorSentinel   = []byte("Error R")
 )
+
+type dynoError struct {
+	Code int
+}
+
+func parseBytesToDynoError(msg []byte) (dynoError, error) {
+	de := dynoError{}
+	byteCode := msg[len(dynoErrorSentinel) : len(dynoErrorSentinel)+2]
+	code, err := strconv.Atoi(string(byteCode))
+	if err != nil {
+		return de, err
+	}
+	de.Code = code
+	return de, nil
+}
 
 type dynoMemMsg struct {
 	Source        string
@@ -36,21 +51,21 @@ type dynoMemMsg struct {
 
 func (dm *dynoMemMsg) HandleLogfmt(key, val []byte) error {
 	switch {
-	case bytes.Equal(key, source):
+	case bytes.Equal(key, keySource):
 		dm.Source = string(val)
-	case bytes.Equal(key, dyno):
+	case bytes.Equal(key, keyDyno):
 		dm.Dyno = string(val)
-	case bytes.HasSuffix(key, memoryTotal):
+	case bytes.HasSuffix(key, keyMemoryTotal):
 		dm.MemoryTotal, _ = strconv.ParseFloat(strings.TrimSuffix(string(val), "MB"), 64)
-	case bytes.HasSuffix(key, memoryRSS):
+	case bytes.HasSuffix(key, keyMemoryRSS):
 		dm.MemoryRSS, _ = strconv.ParseFloat(strings.TrimSuffix(string(val), "MB"), 64)
-	case bytes.HasSuffix(key, memoryCache):
+	case bytes.HasSuffix(key, keyMemoryCache):
 		dm.MemoryCache, _ = strconv.ParseFloat(strings.TrimSuffix(string(val), "MB"), 64)
-	case bytes.HasSuffix(key, memorySwap):
+	case bytes.HasSuffix(key, keyMemorySwap):
 		dm.MemorySwap, _ = strconv.ParseFloat(strings.TrimSuffix(string(val), "MB"), 64)
-	case bytes.HasSuffix(key, memoryPgpgin):
+	case bytes.HasSuffix(key, keyMemoryPgpgin):
 		dm.MemoryPgpgin, _ = strconv.Atoi(strings.TrimSuffix(string(val), "pages"))
-	case bytes.HasSuffix(key, memoryPgpgout):
+	case bytes.HasSuffix(key, keyMemoryPgpgout):
 		dm.MemoryPgpgout, _ = strconv.Atoi(strings.TrimSuffix(string(val), "pages"))
 	}
 	return nil
@@ -66,15 +81,15 @@ type dynoLoadMsg struct {
 
 func (dm *dynoLoadMsg) HandleLogfmt(key, val []byte) error {
 	switch {
-	case bytes.Equal(key, source):
+	case bytes.Equal(key, keySource):
 		dm.Source = string(val)
-	case bytes.Equal(key, dyno):
+	case bytes.Equal(key, keyDyno):
 		dm.Dyno = string(val)
-	case bytes.HasSuffix(key, loadAvg1Min):
+	case bytes.HasSuffix(key, keyLoadAvg1Min):
 		dm.LoadAvg1Min, _ = strconv.ParseFloat(string(val), 64)
-	case bytes.HasSuffix(key, loadAvg5Min):
+	case bytes.HasSuffix(key, keyLoadAvg5Min):
 		dm.LoadAvg5Min, _ = strconv.ParseFloat(string(val), 64)
-	case bytes.HasSuffix(key, loadAvg15Min):
+	case bytes.HasSuffix(key, keyLoadAvg15Min):
 		dm.LoadAvg15Min, _ = strconv.ParseFloat(string(val), 64)
 	}
 	return nil

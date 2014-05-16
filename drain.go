@@ -9,8 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bmizerany/lpx"
@@ -82,19 +80,9 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					log.Printf("logfmt unmarshal error: %s\n", err)
 					continue
 				}
-				service, e := strconv.Atoi(strings.TrimSuffix(rm.Service, "ms"))
-				if e != nil {
-					log.Printf("Unable to Atoi on service time (%s): %s\n", rm.Service, e)
-					continue
-				}
-				connect, e := strconv.Atoi(strings.TrimSuffix(rm.Connect, "ms"))
-				if e != nil {
-					log.Printf("Unable to Atoi on connect time (%s): %s\n", rm.Service, e)
-					continue
-				}
 				routerSeries.Points = append(
 					routerSeries.Points,
-					[]interface{}{timestamp, rm.Bytes, rm.Status, service, connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+					[]interface{}{timestamp, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
 				)
 
 				// Non router logs, so either dynos, runtime, etc
@@ -102,15 +90,13 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				msg := lp.Bytes()
 				switch {
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
-					byteCode := msg[len(dynoErrorSentinel) : len(dynoErrorSentinel)+2]
-					code, err := strconv.Atoi(string(byteCode))
+					de, err := parseBytesToDynoError(msg)
 					if err != nil {
-						log.Printf("Unable to Atoi on dyno error code: %s", string(byteCode))
-						continue
+						log.Printf("Unable to parse dyno error message: %q\n", err)
 					}
 					eventSeries.Points = append(
 						eventSeries.Points,
-						[]interface{}{timestamp, string(lp.Header().Procid), "R", code, string(msg)},
+						[]interface{}{timestamp, string(lp.Header().Procid), "R", de.Code, string(msg)},
 					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
