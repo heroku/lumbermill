@@ -52,7 +52,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
-	eventSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoEvents := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -94,8 +94,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
 					}
-					eventSeries.Points = append(
-						eventSeries.Points,
+					dynoEvents.Points = append(
+						dynoEvents.Points,
 						[]interface{}{timestamp, string(lp.Header().Procid), "R", de.Code, string(msg)},
 					)
 
@@ -147,10 +147,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		series = append(series, dynoLoadSeries)
 	}
 
-	if len(eventSeries.Points) > 0 {
-		eventSeries.Name = "events." + id
-		eventSeries.Columns = []string{"time", "what", "type", "code", "message"}
-		series = append(series, eventSeries)
+	if len(dynoEvents.Points) > 0 {
+		dynoEvents.Name = "dyno.events." + id
+		dynoEvents.Columns = []string{"time", "what", "type", "code", "message"}
+		series = append(series, dynoEvents)
 	}
 
 	if len(series) > 0 {
