@@ -46,10 +46,12 @@ func init() {
 	}
 }
 
+// "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	series := make([]*influx.Series, 0, 4)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
+	routerEventSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoEvents := &influx.Series{Points: make([][]interface{}, 0)}
@@ -62,6 +64,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	for lp.Next() {
 		header := lp.Header()
+		msg := lp.Bytes()
 		switch string(header.Name) {
 		case "heroku":
 			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
@@ -74,20 +77,37 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			pid := string(header.Procid)
 			switch pid {
 			case "router":
-				rm := routerMsg{}
-				err := logfmt.Unmarshal(lp.Bytes(), &rm)
-				if err != nil {
-					log.Printf("logfmt unmarshal error: %s\n", err)
-					continue
+
+				switch {
+				// router logs with a H error code in them
+				case bytes.Contains(msg, keyCodeH):
+					re := routerError{}
+					err := logfmt.Unmarshal(msg, &re)
+					if err != nil {
+						log.Printf("logfmt unmarshal error: %s\n", err)
+						continue
+					}
+					routerEventSeries.Points = append(
+						routerEventSeries.Points,
+						[]interface{}{timestamp, re.At, re.Code, re.Desc, re.Method, re.Host, re.Fwd, re.Dyno, re.Connect, re.Service, re.Status, re.Bytes, re.Sock},
+					)
+
+				// likely a standard router log
+				default:
+					rm := routerMsg{}
+					err := logfmt.Unmarshal(msg, &rm)
+					if err != nil {
+						log.Printf("logfmt unmarshal error: %s\n", err)
+						continue
+					}
+					routerSeries.Points = append(
+						routerSeries.Points,
+						[]interface{}{timestamp, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+					)
 				}
-				routerSeries.Points = append(
-					routerSeries.Points,
-					[]interface{}{timestamp, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
-				)
 
 				// Non router logs, so either dynos, runtime, etc
 			default:
-				msg := lp.Bytes()
 				switch {
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
 					de, err := parseBytesToDynoError(msg)
@@ -101,7 +121,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					dm := dynoMemMsg{}
-					err := logfmt.Unmarshal(lp.Bytes(), &dm)
+					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
@@ -114,7 +134,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
 					dm := dynoLoadMsg{}
-					err := logfmt.Unmarshal(lp.Bytes(), &dm)
+					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
@@ -134,6 +154,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		routerSeries.Name = "router." + id
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
+	}
+	if len(routerEventSeries.Points) > 0 {
+		routerEventSeries.Name = "router.events." + id
+		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
+		series = append(series, routerEventSeries)
 	}
 
 	if len(dynoMemSeries.Points) > 0 {

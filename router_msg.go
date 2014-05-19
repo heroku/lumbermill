@@ -7,6 +7,9 @@ import (
 )
 
 var (
+	keyAt        = []byte("at")
+	keyCode      = []byte("code")
+	keyDesc      = []byte("desc")
 	keyMethod    = []byte("method")
 	keyPath      = []byte("path")
 	keyHost      = []byte("host")
@@ -15,7 +18,9 @@ var (
 	keyConnect   = []byte("connect")
 	keyService   = []byte("service")
 	keyStatus    = []byte("status")
+	keySock      = []byte("sock")
 	keyBytes     = []byte("bytes")
+	keyCodeH     = []byte("code=H")
 )
 
 // at=info method=GET path=/check?metric=railgun.accepting:sum:max,railgun.running:sum:max&0
@@ -87,9 +92,50 @@ type routerError struct {
 	Host    string
 	Fwd     string
 	Dyno    string
-	Connect string
-	Service string
+	Connect int
+	Service int
 	Status  int
 	Bytes   int
 	Sock    string
+}
+
+func (re *routerError) HandleLogfmt(key, val []byte) error {
+	switch {
+	case bytes.Equal(key, keyAt):
+		re.At = string(val)
+	case bytes.Equal(key, keyCode):
+		re.Code = string(val)
+	case bytes.Equal(key, keyDesc):
+		re.Desc = string(val)
+	case bytes.Equal(key, keyMethod):
+		re.Method = string(val)
+	case bytes.Equal(key, keyHost):
+		re.Host = string(val)
+	case bytes.Equal(key, keyFwd):
+		re.Fwd = string(val)
+	case bytes.Equal(key, keyDyno):
+		re.Dyno = string(val)
+	case bytes.Equal(key, keyConnect):
+		connect, _ := strconv.Atoi(strings.TrimSuffix(string(val), "ms"))
+		// swallow errors because connect could be nothing
+		re.Connect = connect
+	case bytes.Equal(key, keyService):
+		service, _ := strconv.Atoi(strings.TrimSuffix(string(val), "ms"))
+		// swallow errors because service could be nothing
+		re.Service = service
+	case bytes.Equal(key, keyStatus):
+		status, _ := strconv.Atoi(string(val))
+		// swallow errors because status could be nothing
+		re.Status = status
+	case bytes.Equal(key, keyBytes):
+		bytes, _ := strconv.Atoi(string(val))
+		// swallow errors because bytes could be nothing
+		re.Bytes = bytes
+	case bytes.Equal(key, keySock):
+		re.Sock = string(val)
+	default:
+		return nil
+		// log.Printf("Unknown key (%s) with value: %s\n", key, string(val))
+	}
+	return nil
 }
