@@ -72,7 +72,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	for lp.Next() {
-		ctx.Count("lumbermill.total.lines", 1)
+		ctx.Count("total.lines", 1)
 		header := lp.Header()
 		msg := lp.Bytes()
 		switch string(header.Name) {
@@ -91,7 +91,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// router logs with a H error code in them
 				case bytes.Contains(msg, keyCodeH):
-					ctx.Count("lumbermill.router.error.lines", 1)
+					ctx.Count("router.error.lines", 1)
 					re := routerError{}
 					err := logfmt.Unmarshal(msg, &re)
 					if err != nil {
@@ -105,7 +105,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// likely a standard router log
 				default:
-					ctx.Count("lumbermill.router.lines", 1)
+					ctx.Count("router.lines", 1)
 					rm := routerMsg{}
 					err := logfmt.Unmarshal(msg, &rm)
 					if err != nil {
@@ -122,7 +122,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			default:
 				switch {
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
-					ctx.Count("lumbermill.dyno.error.lines", 1)
+					ctx.Count("dyno.error.lines", 1)
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
@@ -133,7 +133,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
-					ctx.Count("lumbermill.dyno.mem.lines", 1)
+					ctx.Count("dyno.mem.lines", 1)
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
@@ -147,7 +147,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						)
 					}
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
-					ctx.Count("lumbermill.dyno.load.lines", 1)
+					ctx.Count("dyno.load.lines", 1)
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
@@ -161,44 +161,44 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						)
 					}
 				default: // unknown
-					ctx.Count("lumbermill.unknown.heroku.lines", 1)
+					ctx.Count("unknown.heroku.lines", 1)
 				}
 			}
 		default: // non heroku lines
-			ctx.Count("lumbermill.non.heroku.lines", 1)
+			ctx.Count("non.heroku.lines", 1)
 		}
 	}
-	ctx.MeasureSince("lumbermill.parse.time", parseStart)
+	ctx.MeasureSince("parse.time", parseStart)
 
-	ctx.Count("lumbermill.router.points", len(routerSeries.Points))
+	ctx.Count("router.points", len(routerSeries.Points))
 	if len(routerSeries.Points) > 0 {
 		routerSeries.Name = "router." + id
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
 	}
 
-	ctx.Count("lumbermill.router.events.points", len(routerEventSeries.Points))
+	ctx.Count("router.events.points", len(routerEventSeries.Points))
 	if len(routerEventSeries.Points) > 0 {
 		routerEventSeries.Name = "router.events." + id
 		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
 		series = append(series, routerEventSeries)
 	}
 
-	ctx.Count("lumbermill.dyno.mem.points", len(dynoMemSeries.Points))
+	ctx.Count("dyno.mem.points", len(dynoMemSeries.Points))
 	if len(dynoMemSeries.Points) > 0 {
 		dynoMemSeries.Name = "dyno.mem." + id
 		dynoMemSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
 		series = append(series, dynoMemSeries)
 	}
 
-	ctx.Count("lumbermill.dyno.series.points", len(dynoLoadSeries.Points))
+	ctx.Count("dyno.series.points", len(dynoLoadSeries.Points))
 	if len(dynoLoadSeries.Points) > 0 {
 		dynoLoadSeries.Name = "dyno.load." + id
 		dynoLoadSeries.Columns = []string{"time", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
 		series = append(series, dynoLoadSeries)
 	}
 
-	ctx.Count("lumbermill.dyno.events.points", len(dynoEvents.Points))
+	ctx.Count("dyno.events.points", len(dynoEvents.Points))
 	if len(dynoEvents.Points) > 0 {
 		dynoEvents.Name = "dyno.events." + id
 		dynoEvents.Columns = []string{"time", "what", "type", "code", "message"}
@@ -211,7 +211,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
-		ctx.MeasureSince("lumbermill.post.time", postStart)
+		ctx.MeasureSince("post.time", postStart)
 	}
 
 	w.WriteHeader(200)
