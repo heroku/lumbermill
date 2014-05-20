@@ -49,6 +49,11 @@ func init() {
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	series := make([]*influx.Series, 0, 4)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	routerEventSeries := &influx.Series{Points: make([][]interface{}, 0)}

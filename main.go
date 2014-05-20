@@ -1,9 +1,13 @@
 package main
 
-import "github.com/go-martini/martini"
+import (
+	"log"
+	"net/http"
+	"os"
+)
 
 func main() {
-	m := martini.Classic()
-	m.Post("/drain", serveDrain)
-	m.Run()
+	port := os.Getenv("PORT")
+	http.HandleFunc("/drain", serveDrain)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
