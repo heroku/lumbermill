@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bmizerany/lpx"
+	"github.com/heroku/slog"
 	influx "github.com/influxdb/influxdb-go"
 	"github.com/kr/logfmt"
 )
@@ -48,6 +49,8 @@ func init() {
 
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
+	ctx := slog.Context{}
+	defer func() { LogWithContext(ctx) }()
 
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -64,6 +67,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
 
+	parseStart := time.Now()
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 	defer r.Body.Close()
 
@@ -154,29 +158,37 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	ctx.MeasureSince("lumbermill.parse.time", parseStart)
 
+	ctx.Count("lumbermill.router.points", len(routerSeries.Points))
 	if len(routerSeries.Points) > 0 {
 		routerSeries.Name = "router." + id
 		routerSeries.Columns = []string{"time", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
 		series = append(series, routerSeries)
 	}
+
+	ctx.Count("lumbermill.router.events.points", len(routerEventSeries.Points))
 	if len(routerEventSeries.Points) > 0 {
 		routerEventSeries.Name = "router.events." + id
 		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
 		series = append(series, routerEventSeries)
 	}
 
+	ctx.Count("lumbermill.dyno.mem.points", len(dynoMemSeries.Points))
 	if len(dynoMemSeries.Points) > 0 {
 		dynoMemSeries.Name = "dyno.mem." + id
 		dynoMemSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
 		series = append(series, dynoMemSeries)
 	}
+
+	ctx.Count("lumbermill.dyno.series.points", len(dynoLoadSeries.Points))
 	if len(dynoLoadSeries.Points) > 0 {
 		dynoLoadSeries.Name = "dyno.load." + id
 		dynoLoadSeries.Columns = []string{"time", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
 		series = append(series, dynoLoadSeries)
 	}
 
+	ctx.Count("lumbermill.dyno.events.points", len(dynoEvents.Points))
 	if len(dynoEvents.Points) > 0 {
 		dynoEvents.Name = "dyno.events." + id
 		dynoEvents.Columns = []string{"time", "what", "type", "code", "message"}
@@ -184,10 +196,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(series) > 0 {
+		postStart := time.Now()
 		err := influxClient.WriteSeriesWithTimePrecision(series, influx.Microsecond)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
+		ctx.MeasureSince("lumbermill.post.time", postStart)
 	}
 
 	w.WriteHeader(200)
