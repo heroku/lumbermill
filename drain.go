@@ -72,6 +72,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	for lp.Next() {
+		ctx.Count("lumbermill.total.lines", 1)
 		header := lp.Header()
 		msg := lp.Bytes()
 		switch string(header.Name) {
@@ -90,6 +91,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// router logs with a H error code in them
 				case bytes.Contains(msg, keyCodeH):
+					ctx.Count("lumbermill.router.error.lines", 1)
 					re := routerError{}
 					err := logfmt.Unmarshal(msg, &re)
 					if err != nil {
@@ -103,6 +105,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// likely a standard router log
 				default:
+					ctx.Count("lumbermill.router.lines", 1)
 					rm := routerMsg{}
 					err := logfmt.Unmarshal(msg, &rm)
 					if err != nil {
@@ -119,6 +122,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			default:
 				switch {
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
+					ctx.Count("lumbermill.dyno.error.lines", 1)
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
@@ -129,6 +133,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
+					ctx.Count("lumbermill.dyno.mem.lines", 1)
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
@@ -142,6 +147,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						)
 					}
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
+					ctx.Count("lumbermill.dyno.load.lines", 1)
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
@@ -154,8 +160,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 							[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
 						)
 					}
+				default: // unknown
+					ctx.Count("lumbermill.unknown.heroku.lines", 1)
 				}
 			}
+		default: // non heroku lines
+			ctx.Count("lumbermill.non.heroku.lines", 1)
 		}
 	}
 	ctx.MeasureSince("lumbermill.parse.time", parseStart)
