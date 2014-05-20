@@ -100,7 +100,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					routerEventSeries.Points = append(
 						routerEventSeries.Points,
-						[]interface{}{timestamp, re.At, re.Code, re.Desc, re.Method, re.Host, re.Fwd, re.Dyno, re.Connect, re.Service, re.Status, re.Bytes, re.Sock},
+						[]interface{}{timestamp, re.At, re.Code, re.Desc, re.Method, re.Host, re.Path, re.RequestId, re.Fwd, re.Dyno, re.Connect, re.Service, re.Status, re.Bytes, re.Sock},
 					)
 
 				// likely a standard router log
@@ -180,7 +180,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	ctx.Count("router.events.points", len(routerEventSeries.Points))
 	if len(routerEventSeries.Points) > 0 {
 		routerEventSeries.Name = "router.events." + id
-		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
+		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "path", "requestId", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
 		series = append(series, routerEventSeries)
 	}
 

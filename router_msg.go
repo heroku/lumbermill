@@ -85,18 +85,20 @@ func (rm *routerMsg) HandleLogfmt(key, val []byte) error {
 }
 
 type routerError struct {
-	At      string
-	Code    string
-	Desc    string
-	Method  string
-	Host    string
-	Fwd     string
-	Dyno    string
-	Connect int
-	Service int
-	Status  int
-	Bytes   int
-	Sock    string
+	At        string
+	Code      string
+	Desc      string
+	Method    string
+	Host      string
+	Fwd       string
+	Dyno      string
+	Path      string
+	RequestId string
+	Connect   int
+	Service   int
+	Status    int
+	Bytes     int
+	Sock      string
 }
 
 func (re *routerError) HandleLogfmt(key, val []byte) error {
@@ -113,6 +115,10 @@ func (re *routerError) HandleLogfmt(key, val []byte) error {
 		re.Host = string(val)
 	case bytes.Equal(key, keyFwd):
 		re.Fwd = string(val)
+	case bytes.Equal(key, keyPath):
+		re.Path = string(val)
+	case bytes.Equal(key, keyRequestId):
+		re.RequestId = string(val)
 	case bytes.Equal(key, keyDyno):
 		re.Dyno = string(val)
 	case bytes.Equal(key, keyConnect):
