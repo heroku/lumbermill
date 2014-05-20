@@ -1,19 +1,10 @@
 {
-	"ImportPath": "github.com/heroku/lumbermill",
+	"ImportPath": "github.com/freeformz/lumbermill",
 	"GoVersion": "go1.2.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/bmizerany/lpx",
 			"Rev": "af85cf24c1567bcb5a2e4c21597cc049eab31f55"
-		},
-		{
-			"ImportPath": "github.com/codegangsta/inject",
-			"Rev": "9aea7a2fa5b79ef7fc00f63a575e72df33b4e886"
-		},
-		{
-			"ImportPath": "github.com/go-martini/martini",
-			"Comment": "v1.0-rc1",
-			"Rev": "de643861770082784ad14cba4557ad68568dcc7b"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
