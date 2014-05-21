@@ -57,6 +57,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx.Count("batch", 1)
+
 	series := make([]*influx.Series, 0, 4)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	routerEventSeries := &influx.Series{Points: make([][]interface{}, 0)}
