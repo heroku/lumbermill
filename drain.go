@@ -59,12 +59,18 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	ctx.Count("batch", 1)
 
-	series := make([]*influx.Series, 0, 4)
+	series := make([]*influx.Series, 0, 10)
 	routerSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	routerEventSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoMemSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoLoadSeries := &influx.Series{Points: make([][]interface{}, 0)}
 	dynoEvents := &influx.Series{Points: make([][]interface{}, 0)}
+
+	routerSeriesWithId := &influx.Series{Points: make([][]interface{}, 0)}
+	routerEventSeriesWithId := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoMemSeriesWithId := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoLoadSeriesWithId := &influx.Series{Points: make([][]interface{}, 0)}
+	dynoEventsWithId := &influx.Series{Points: make([][]interface{}, 0)}
 
 	//FIXME: Better auth? Encode the Token via Fernet and make that the user or password?
 	id := r.Header.Get("Logplex-Drain-Token")
@@ -104,6 +110,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						routerEventSeries.Points,
 						[]interface{}{timestamp, re.At, re.Code, re.Desc, re.Method, re.Host, re.Path, re.RequestId, re.Fwd, re.Dyno, re.Connect, re.Service, re.Status, re.Bytes, re.Sock},
 					)
+					routerEventSeriesWithId.Points = append(
+						routerEventSeriesWithId.Points,
+						[]interface{}{timestamp, id, re.At, re.Code, re.Desc, re.Method, re.Host, re.Path, re.RequestId, re.Fwd, re.Dyno, re.Connect, re.Service, re.Status, re.Bytes, re.Sock},
+					)
 
 				// likely a standard router log
 				default:
@@ -117,6 +127,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					routerSeries.Points = append(
 						routerSeries.Points,
 						[]interface{}{timestamp, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
+					)
+					routerSeriesWithId.Points = append(
+						routerSeriesWithId.Points,
+						[]interface{}{timestamp, id, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd},
 					)
 				}
 
@@ -133,6 +147,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						dynoEvents.Points,
 						[]interface{}{timestamp, string(lp.Header().Procid), "R", de.Code, string(msg)},
 					)
+					dynoEventsWithId.Points = append(
+						dynoEventsWithId.Points,
+						[]interface{}{timestamp, id, string(lp.Header().Procid), "R", de.Code, string(msg)},
+					)
 
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					ctx.Count("dyno.mem.lines", 1)
@@ -147,6 +165,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 							dynoMemSeries.Points,
 							[]interface{}{timestamp, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
 						)
+						dynoMemSeriesWithId.Points = append(
+							dynoMemSeriesWithId.Points,
+							[]interface{}{timestamp, id, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal},
+						)
 					}
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
 					ctx.Count("dyno.load.lines", 1)
@@ -160,6 +182,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						dynoLoadSeries.Points = append(
 							dynoLoadSeries.Points,
 							[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
+						)
+						dynoLoadSeriesWithId.Points = append(
+							dynoLoadSeriesWithId.Points,
+							[]interface{}{timestamp, id, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min},
 						)
 					}
 				default: // unknown
@@ -179,11 +205,22 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		series = append(series, routerSeries)
 	}
 
+	if len(routerSeriesWithId.Points) > 0 {
+		routerSeriesWithId.Name = "router"
+		routerSeriesWithId.Columns = []string{"time", "id", "bytes", "status", "service", "connect", "dyno", "method", "path", "host", "requestId", "fwd"}
+		series = append(series, routerSeriesWithId)
+	}
+
 	ctx.Count("router.events.points", len(routerEventSeries.Points))
 	if len(routerEventSeries.Points) > 0 {
 		routerEventSeries.Name = "router.events." + id
 		routerEventSeries.Columns = []string{"time", "at", "code", "desc", "method", "host", "path", "requestId", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
 		series = append(series, routerEventSeries)
+	}
+	if len(routerEventSeriesWithId.Points) > 0 {
+		routerEventSeriesWithId.Name = "router.events"
+		routerEventSeriesWithId.Columns = []string{"time", "id", "at", "code", "desc", "method", "host", "path", "requestId", "fwd", "dyno", "connect", "service", "status", "bytes", "sock"}
+		series = append(series, routerEventSeriesWithId)
 	}
 
 	ctx.Count("dyno.mem.points", len(dynoMemSeries.Points))
@@ -192,6 +229,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		dynoMemSeries.Columns = []string{"time", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
 		series = append(series, dynoMemSeries)
 	}
+	if len(dynoMemSeriesWithId.Points) > 0 {
+		dynoMemSeriesWithId.Name = "dyno.mem"
+		dynoMemSeriesWithId.Columns = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
+		series = append(series, dynoMemSeriesWithId)
+	}
 
 	ctx.Count("dyno.series.points", len(dynoLoadSeries.Points))
 	if len(dynoLoadSeries.Points) > 0 {
@@ -199,12 +241,22 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		dynoLoadSeries.Columns = []string{"time", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
 		series = append(series, dynoLoadSeries)
 	}
+	if len(dynoLoadSeriesWithId.Points) > 0 {
+		dynoLoadSeriesWithId.Name = "dyno.load"
+		dynoLoadSeriesWithId.Columns = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
+		series = append(series, dynoLoadSeriesWithId)
+	}
 
 	ctx.Count("dyno.events.points", len(dynoEvents.Points))
 	if len(dynoEvents.Points) > 0 {
 		dynoEvents.Name = "dyno.events." + id
 		dynoEvents.Columns = []string{"time", "what", "type", "code", "message"}
 		series = append(series, dynoEvents)
+	}
+	if len(dynoEventsWithId.Points) > 0 {
+		dynoEventsWithId.Name = "dyno.events"
+		dynoEventsWithId.Columns = []string{"time", "id", "what", "type", "code", "message"}
+		series = append(series, dynoEventsWithId)
 	}
 
 	if len(series) > 0 {
