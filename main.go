@@ -67,7 +67,7 @@ func main() {
 	posters = append(posters, NewPoster(influxClientConfig, "events.dyno", dynoEventsPoints, dynoEventsColumns))
 
 	for _, poster := range posters {
-		poster.Run()
+		go poster.Run()
 	}
 
 	// Some statistics about the channels this way we can see how full they are getting
