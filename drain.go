@@ -12,6 +12,10 @@ import (
 	"github.com/kr/logfmt"
 )
 
+var (
+	TokenPrefix = []byte("t.")
+)
+
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 	ctx := slog.Context{}
@@ -40,6 +44,14 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	for lp.Next() {
 		ctx.Count("lines.total", 1)
 		header := lp.Header()
+
+		// If the syslog App Name Header field containts what looks like a log token,
+		// let's assume it's an override of the id and we're getting the data from the magic
+		// channel
+		if bytes.HasPrefix(header.Name, TokenPrefix) {
+			id = string(header.Name)
+		}
+
 		msg := lp.Bytes()
 		switch string(header.Name) {
 		case "heroku":
