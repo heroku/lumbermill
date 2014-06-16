@@ -89,6 +89,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
+					log.Printf("Id: %s\n", id)
 					routerPoints <- []interface{}{timestamp, id, rm.Bytes, rm.Status, rm.Service, rm.Connect, rm.Dyno, rm.Method, rm.Path, rm.Host, rm.RequestId, rm.Fwd}
 				}
 
