@@ -14,6 +14,7 @@ import (
 
 var (
 	TokenPrefix = []byte("t.")
+	Heroku      = []byte("heroku")
 )
 
 // "Parse tree" from hell
@@ -53,8 +54,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		}
 
 		msg := lp.Bytes()
-		switch string(header.Name) {
-		case "heroku":
+		switch {
+		case bytes.Equal(header.Name, Heroku), bytes.HasPrefix(header.Name, TokenPrefix):
 			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
 			if e != nil {
 				log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
