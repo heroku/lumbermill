@@ -129,6 +129,15 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		default: // non heroku lines
 			ctx.Count("lines.unknown.user", 1)
+			log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
+				header.PrivalVersion,
+				header.Time,
+				header.Hostname,
+				header.Name,
+				header.Procid,
+				header.Msgid,
+				string(msg),
+			)
 		}
 	}
 	ctx.MeasureSince("lines.parse.time", parseStart)
