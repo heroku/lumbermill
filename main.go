@@ -53,6 +53,12 @@ func LogWithContext(ctx slog.Context) {
 	log.Println(ctx)
 }
 
+// Health Checks, so just say 200 - OK
+// TODO: Actual healthcheck
+func serveHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
 	port := os.Getenv("PORT")
 
@@ -85,5 +91,6 @@ func main() {
 	}()
 
 	http.HandleFunc("/drain", serveDrain)
+	http.HandleFunc("/health", serveHealth)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
