@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/freeformz/lumbermill",
+	"ImportPath": "github.com/heroku/lumbermill",
 	"GoVersion": "go1.2.1",
 	"Deps": [
 		{
