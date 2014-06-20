@@ -46,6 +46,8 @@ var (
 	dynoMemColumns     = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
 	dynoLoadColumns    = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
 	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message"}
+
+	Debug = os.Getenv("DEBUG") == "true"
 )
 
 func LogWithContext(ctx slog.Context) {
