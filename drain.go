@@ -21,6 +21,7 @@ var (
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 	ctx := slog.Context{}
 	defer func() { LogWithContext(ctx) }()
+	w.Header().Set("Content-Length", "0")
 
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
