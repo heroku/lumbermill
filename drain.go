@@ -40,7 +40,6 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	parseStart := time.Now()
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
-	defer r.Body.Close()
 
 	for lp.Next() {
 		ctx.Count("lines.total", 1)
