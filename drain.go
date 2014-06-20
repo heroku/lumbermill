@@ -156,5 +156,5 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx.MeasureSince("lines.parse.time", parseStart)
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
