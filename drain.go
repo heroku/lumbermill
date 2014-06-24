@@ -59,6 +59,13 @@ func checkAuth(r *http.Request) error {
 	return nil
 }
 
+// Dyno's are generally reported as "<type>.<#>"
+// Extract the <type> and return it
+func dynoType(what string) string {
+	s := strings.Split(what, ".")
+	return s[0]
+}
+
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 
@@ -145,14 +152,26 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				// Non router logs, so either dynos, runtime, etc
 			default:
 				switch {
+				// Dyno error messages
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
 					ctx.Count("lines.dyno.error", 1)
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
 					}
-					dynoEventsPoints <- []interface{}{timestamp, id, string(lp.Header().Procid), "R", de.Code, string(msg)}
 
+					what := string(lp.Header().Procid)
+					dynoEventsPoints <- []interface{}{
+						timestamp,
+						id,
+						what,
+						"R",
+						de.Code,
+						string(msg),
+						dynoType(what),
+					}
+
+				// Dyno log-runtime-metrics memory messages
 				case bytes.Contains(msg, dynoMemMsgSentinel):
 					ctx.Count("lines.dyno.mem", 1)
 					dm := dynoMemMsg{}
@@ -162,8 +181,21 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						dynoMemPoints <- []interface{}{timestamp, id, dm.Source, dm.MemoryCache, dm.MemoryPgpgin, dm.MemoryPgpgout, dm.MemoryRSS, dm.MemorySwap, dm.MemoryTotal}
+						dynoMemPoints <- []interface{}{
+							timestamp,
+							id,
+							dm.Source,
+							dm.MemoryCache,
+							dm.MemoryPgpgin,
+							dm.MemoryPgpgout,
+							dm.MemoryRSS,
+							dm.MemorySwap,
+							dm.MemoryTotal,
+							dynoType(dm.Source),
+						}
 					}
+
+					// Dyno log-runtime-metrics load messages
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
 					ctx.Count("lines.dyno.load", 1)
 					dm := dynoLoadMsg{}
@@ -173,9 +205,19 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						dynoLoadPoints <- []interface{}{timestamp, id, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min}
+						dynoLoadPoints <- []interface{}{
+							timestamp,
+							id,
+							dm.Source,
+							dm.LoadAvg1Min,
+							dm.LoadAvg5Min,
+							dm.LoadAvg15Min,
+							dynoType(dm.Source),
+						}
 					}
-				default: // unknown
+
+				// unknown
+				default:
 					ctx.Count("lines.unknown.heroku", 1)
 					if Debug {
 						log.Printf("Unknown Heroku Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
@@ -190,7 +232,9 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-		default: // non heroku lines
+
+		// non heroku lines
+		default:
 			ctx.Count("lines.unknown.user", 1)
 			if Debug {
 				log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",

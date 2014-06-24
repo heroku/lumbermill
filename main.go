@@ -43,9 +43,9 @@ var (
 
 	routerColumns      = []string{"time", "id", "status", "service"}
 	routerEventColumns = []string{"time", "id", "code"}
-	dynoMemColumns     = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total"}
-	dynoLoadColumns    = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m"}
-	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message"}
+	dynoMemColumns     = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}
+	dynoLoadColumns    = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"}
+	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message", "dynoType"}
 
 	Debug = os.Getenv("DEBUG") == "true"
 
