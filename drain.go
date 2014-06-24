@@ -19,6 +19,9 @@ var (
 
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
+
+	var authed bool
+
 	ctx := slog.Context{}
 	defer func() { LogWithContext(ctx) }()
 	w.Header().Set("Content-Length", "0")
@@ -31,7 +34,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	id := r.Header.Get("Logplex-Drain-Token")
 
-	if id == "" {
+	pwd, _ := r.URL.User.Password()
+	if r.URL.User.Username() == User && pwd == Password {
+		authed = true
+	}
+
+	if id == "" && !authed {
 		w.WriteHeader(http.StatusBadRequest)
 		ctx.Count("errors.drain.missing.token", 1)
 		return
@@ -51,6 +59,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		// channel
 		if bytes.HasPrefix(header.Name, TokenPrefix) {
 			id = string(header.Name)
+		}
+
+		// If we still don't have an id, throw an error and try the next line
+		if id == "" {
+			ctx.Count("errors.token.missing", 1)
+			continue
 		}
 
 		msg := lp.Bytes()

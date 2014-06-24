@@ -48,6 +48,9 @@ var (
 	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message"}
 
 	Debug = os.Getenv("DEBUG") == "true"
+
+	User     = os.Getenv("USER")
+	Password = os.Getenv("PASSWORD")
 )
 
 func LogWithContext(ctx slog.Context) {
