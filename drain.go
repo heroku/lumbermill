@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
+	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bmizerany/lpx"
@@ -17,10 +20,47 @@ var (
 	Heroku      = []byte("heroku")
 )
 
+func checkAuth(r *http.Request) error {
+	header := r.Header.Get("Authorization")
+	if header == "" {
+		return errors.New("Authorization required")
+	}
+	headerParts := strings.SplitN(header, " ", 2)
+	if len(headerParts) != 2 {
+		return errors.New("Authorization header is malformed")
+	}
+
+	method := headerParts[0]
+	if method != "Basic" {
+		return errors.New("Only Basic Authorization is accepted")
+	}
+
+	encodedUserPass := headerParts[1]
+	decodedUserPass, err := base64.StdEncoding.DecodeString(encodedUserPass)
+	if err != nil {
+		return errors.New("Authorization header is malformed")
+	}
+
+	userPassParts := bytes.SplitN(decodedUserPass, []byte{':'}, 2)
+	if len(userPassParts) != 2 {
+		return errors.New("Authorization header is malformed")
+	}
+
+	user := userPassParts[0]
+	pass := userPassParts[1]
+
+	if string(user) != User {
+		return errors.New("Unknown user")
+	}
+	if string(pass) != Password {
+		return errors.New("Incorrect token")
+	}
+
+	return nil
+}
+
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
-
-	var authed bool
 
 	ctx := slog.Context{}
 	defer func() { LogWithContext(ctx) }()
@@ -34,15 +74,12 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	id := r.Header.Get("Logplex-Drain-Token")
 
-	pwd, _ := r.URL.User.Password()
-	if r.URL.User.Username() == User && pwd == Password {
-		authed = true
-	}
-
-	if id == "" && !authed {
-		w.WriteHeader(http.StatusBadRequest)
-		ctx.Count("errors.drain.missing.token", 1)
-		return
+	if id == "" {
+		if err := checkAuth(r); err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			ctx.Count("errors.auth.failure", 1)
+			return
+		}
 	}
 
 	ctx.Count("batch", 1)
