@@ -39,6 +39,8 @@ var (
 	dynoLoadPoints    = make(chan []interface{}, PointChannelCapacity)
 	dynoEventsPoints  = make(chan []interface{}, PointChannelCapacity)
 
+	connectionCloser = make(chan struct{})
+
 	posters = make([]*Poster, 0)
 
 	routerColumns      = []string{"time", "id", "status", "service"}
@@ -92,6 +94,15 @@ func main() {
 			ctx.Sample("points.dyno.load.pending", len(dynoLoadPoints))
 			ctx.Sample("points.evetns.dyno.pending", len(dynoEventsPoints))
 			LogWithContext(ctx)
+		}
+	}()
+
+	// Every 5 minutes, signal that the connection should be closed
+	// This should allow for a slow balancing of connections.
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			connectionCloser <- struct{}{}
 		}
 	}()
 

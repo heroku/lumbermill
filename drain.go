@@ -251,5 +251,13 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx.MeasureSince("lines.parse.time", parseStart)
 
+	// If we are told to close the connection after the reply, do so.
+	select {
+	case <-connectionCloser:
+		w.Header().Set("Connection", "close")
+	default:
+		//Nothing
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
