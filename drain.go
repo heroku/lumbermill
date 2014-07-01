@@ -135,7 +135,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					routerEventPoints <- []interface{}{timestamp, id, re.Code}
+					channelGroup[EventsRouter] <- []interface{}{timestamp, id, re.Code}
 
 				// likely a standard router log
 				default:
@@ -146,7 +146,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					routerPoints <- []interface{}{timestamp, id, rm.Status, rm.Service}
+					channelGroup[Router] <- []interface{}{timestamp, id, rm.Status, rm.Service}
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -161,7 +161,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 
 					what := string(lp.Header().Procid)
-					dynoEventsPoints <- []interface{}{
+					channelGroup[EventsDyno] <- []interface{}{
 						timestamp,
 						id,
 						what,
@@ -181,7 +181,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						dynoMemPoints <- []interface{}{
+						channelGroup[DynoMem] <- []interface{}{
 							timestamp,
 							id,
 							dm.Source,
@@ -205,7 +205,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						dynoLoadPoints <- []interface{}{
+						channelGroup[DynoLoad] <- []interface{}{
 							timestamp,
 							id,
 							dm.Source,

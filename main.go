@@ -16,6 +16,15 @@ const (
 	PointChannelCapacity = 100000
 )
 
+const (
+	Router = iota
+	EventsRouter
+	DynoMem
+	DynoLoad
+	EventsDyno
+	numSeries
+)
+
 var (
 	influxClientConfig = influx.ClientConfig{
 		Host:     os.Getenv("INFLUXDB_HOST"), //"influxor.ssl.edward.herokudev.com:8086",
@@ -33,26 +42,27 @@ var (
 		},
 	}
 
-	routerPoints      = make(chan []interface{}, PointChannelCapacity)
-	routerEventPoints = make(chan []interface{}, PointChannelCapacity)
-	dynoMemPoints     = make(chan []interface{}, PointChannelCapacity)
-	dynoLoadPoints    = make(chan []interface{}, PointChannelCapacity)
-	dynoEventsPoints  = make(chan []interface{}, PointChannelCapacity)
-
 	connectionCloser = make(chan struct{})
 
 	posters = make([]*Poster, 0)
 
-	routerColumns      = []string{"time", "id", "status", "service"}
-	routerEventColumns = []string{"time", "id", "code"}
-	dynoMemColumns     = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}
-	dynoLoadColumns    = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"}
-	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message", "dynoType"}
+	seriesNames = []string{"router", "events.router", "dyno.mem", "dyno.load", "events.dyno"}
+
+	seriesColumns = [][]string{
+		[]string{"time", "id", "status", "service"}, // Router
+		[]string{"time", "id", "code"}, // EventsRouter
+		[]string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}, // DynoMem
+		[]string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"}, // DynoLoad
+		[]string{"time", "id", "what", "type", "code", "message", "dynoType"}, // DynoEvents
+	}
+
+	channelGroup = NewChanGroup(PointChannelCapacity)
 
 	Debug = os.Getenv("DEBUG") == "true"
 
 	User     = os.Getenv("USER")
 	Password = os.Getenv("PASSWORD")
+
 )
 
 func LogWithContext(ctx slog.Context) {
@@ -69,30 +79,32 @@ func serveHealth(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "events.router", routerEventPoints, routerEventColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "dyno.mem", dynoMemPoints, dynoMemColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "dyno.load", dynoLoadPoints, dynoLoadColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "events.dyno", dynoEventsPoints, dynoEventsColumns))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[EventsRouter], channelGroup[EventsRouter], seriesColumns[EventsRouter]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[DynoMem], channelGroup[DynoMem], seriesColumns[DynoMem]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[DynoLoad], channelGroup[DynoLoad], seriesColumns[DynoLoad]))
+	posters = append(posters, NewPoster(influxClientConfig, seriesNames[EventsDyno], channelGroup[EventsDyno], seriesColumns[EventsDyno]))
 
 	for _, poster := range posters {
 		go poster.Run()
 	}
 
 	// Some statistics about the channels this way we can see how full they are getting
+
+	// TODO(apg): Make this ChanGroup specific
 	go func() {
 		for {
 			ctx := slog.Context{}
 			time.Sleep(10 * time.Second)
-			ctx.Sample("points.router.pending", len(routerPoints))
-			ctx.Sample("points.events.router.pending", len(routerEventPoints))
-			ctx.Sample("points.dyno.mem.pending", len(dynoMemPoints))
-			ctx.Sample("points.dyno.load.pending", len(dynoLoadPoints))
-			ctx.Sample("points.evetns.dyno.pending", len(dynoEventsPoints))
+			ctx.Sample("points.router.pending", len(channelGroup[Router]))
+			ctx.Sample("points.events.router.pending", len(channelGroup[EventsRouter]))
+			ctx.Sample("points.dyno.mem.pending", len(channelGroup[DynoMem]))
+			ctx.Sample("points.dyno.load.pending", len(channelGroup[DynoLoad]))
+			ctx.Sample("points.evetns.dyno.pending", len(channelGroup[EventsDyno]))
 			LogWithContext(ctx)
 		}
 	}()
