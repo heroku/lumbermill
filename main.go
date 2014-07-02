@@ -88,7 +88,7 @@ func main() {
 		group := NewChanGroup(name, PointChannelCapacity)
 		chanGroups = append(chanGroups, group)
 
-		for p := 0; p < PostersPerHost; i++ {
+		for p := 0; p < PostersPerHost; p++ {
 			poster := NewPoster(influxClientConfig, name, group)
 			posters = append(posters, poster)
 			go poster.Run()
