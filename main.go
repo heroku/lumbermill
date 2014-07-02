@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +15,17 @@ import (
 
 const (
 	PointChannelCapacity = 100000
+	HashRingReplication  = 20 // TODO: Needs to be determined
+	PostersPerHost       = 6
+)
+
+const (
+	Router = iota
+	EventsRouter
+	DynoMem
+	DynoLoad
+	EventsDyno
+	numSeries
 )
 
 var (
@@ -33,21 +45,22 @@ var (
 		},
 	}
 
-	routerPoints      = make(chan []interface{}, PointChannelCapacity)
-	routerEventPoints = make(chan []interface{}, PointChannelCapacity)
-	dynoMemPoints     = make(chan []interface{}, PointChannelCapacity)
-	dynoLoadPoints    = make(chan []interface{}, PointChannelCapacity)
-	dynoEventsPoints  = make(chan []interface{}, PointChannelCapacity)
-
 	connectionCloser = make(chan struct{})
 
-	posters = make([]*Poster, 0)
+	posters    = make([]*Poster, 0)
+	chanGroups = make([]*ChanGroup, 0)
 
-	routerColumns      = []string{"time", "id", "status", "service"}
-	routerEventColumns = []string{"time", "id", "code"}
-	dynoMemColumns     = []string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}
-	dynoLoadColumns    = []string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"}
-	dynoEventsColumns  = []string{"time", "id", "what", "type", "code", "message", "dynoType"}
+	seriesNames = []string{"router", "events.router", "dyno.mem", "dyno.load", "events.dyno"}
+
+	seriesColumns = [][]string{
+		[]string{"time", "id", "status", "service"}, // Router
+		[]string{"time", "id", "code"},              // EventsRouter
+		[]string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}, // DynoMem
+		[]string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"},                                                   // DynoLoad
+		[]string{"time", "id", "what", "type", "code", "message", "dynoType"},                                                                        // DynoEvents
+	}
+
+	hashRing = NewHashRing(HashRingReplication, nil)
 
 	Debug = os.Getenv("DEBUG") == "true"
 
@@ -69,30 +82,30 @@ func serveHealth(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "router", routerPoints, routerColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "events.router", routerEventPoints, routerEventColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "dyno.mem", dynoMemPoints, dynoMemColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "dyno.load", dynoLoadPoints, dynoLoadColumns))
-	posters = append(posters, NewPoster(influxClientConfig, "events.dyno", dynoEventsPoints, dynoEventsColumns))
+	for i := 0; i < 1; i++ {
+		// TODO: this should probably be the hostname.
+		name := fmt.Sprintf("host-%d", i)
+		group := NewChanGroup(name, PointChannelCapacity)
+		chanGroups = append(chanGroups, group)
 
-	for _, poster := range posters {
-		go poster.Run()
+		for p := 0; p < PostersPerHost; i++ {
+			poster := NewPoster(influxClientConfig, name, group)
+			posters = append(posters, poster)
+			go poster.Run()
+		}
 	}
 
+	hashRing.Add(chanGroups...)
+
 	// Some statistics about the channels this way we can see how full they are getting
+
 	go func() {
 		for {
 			ctx := slog.Context{}
 			time.Sleep(10 * time.Second)
-			ctx.Sample("points.router.pending", len(routerPoints))
-			ctx.Sample("points.events.router.pending", len(routerEventPoints))
-			ctx.Sample("points.dyno.mem.pending", len(dynoMemPoints))
-			ctx.Sample("points.dyno.load.pending", len(dynoLoadPoints))
-			ctx.Sample("points.evetns.dyno.pending", len(dynoEventsPoints))
+			for _, group := range chanGroups {
+				group.Sample(ctx)
+			}
 			LogWithContext(ctx)
 		}
 	}()
