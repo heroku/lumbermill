@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 
 const (
 	PointChannelCapacity = 100000
+	HashRingReplication  = 20 // TODO: Needs to be determined
+	PostersPerHost       = 3  // TODO: Needs to be determined
 )
 
 const (
@@ -44,25 +47,25 @@ var (
 
 	connectionCloser = make(chan struct{})
 
-	posters = make([]*Poster, 0)
+	posters    = make([]*Poster, 0)
+	chanGroups = make([]*ChanGroup, 0)
 
 	seriesNames = []string{"router", "events.router", "dyno.mem", "dyno.load", "events.dyno"}
 
 	seriesColumns = [][]string{
 		[]string{"time", "id", "status", "service"}, // Router
-		[]string{"time", "id", "code"}, // EventsRouter
+		[]string{"time", "id", "code"},              // EventsRouter
 		[]string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}, // DynoMem
-		[]string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"}, // DynoLoad
-		[]string{"time", "id", "what", "type", "code", "message", "dynoType"}, // DynoEvents
+		[]string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"},                                                   // DynoLoad
+		[]string{"time", "id", "what", "type", "code", "message", "dynoType"},                                                                        // DynoEvents
 	}
 
-	channelGroup = NewChanGroup(PointChannelCapacity)
+	hashRing = NewHashRing(HashRingReplication, nil)
 
 	Debug = os.Getenv("DEBUG") == "true"
 
 	User     = os.Getenv("USER")
 	Password = os.Getenv("PASSWORD")
-
 )
 
 func LogWithContext(ctx slog.Context) {
@@ -79,32 +82,30 @@ func serveHealth(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[Router], channelGroup[Router], seriesColumns[Router]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[EventsRouter], channelGroup[EventsRouter], seriesColumns[EventsRouter]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[DynoMem], channelGroup[DynoMem], seriesColumns[DynoMem]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[DynoLoad], channelGroup[DynoLoad], seriesColumns[DynoLoad]))
-	posters = append(posters, NewPoster(influxClientConfig, seriesNames[EventsDyno], channelGroup[EventsDyno], seriesColumns[EventsDyno]))
+	for i := 0; i < 1; i++ {
+		// TODO: this should probably be the hostname.
+		name := fmt.Sprintf("host-%d", i)
+		group := NewChanGroup(name, PointChannelCapacity)
+		chanGroups = append(chanGroups, group)
 
-	for _, poster := range posters {
-		go poster.Run()
+		for p := 0; p < PostersPerHost; i++ {
+			poster := NewPoster(influxClientConfig, name, group)
+			posters = append(posters, poster)
+			go poster.Run()
+		}
 	}
+
+	hashRing.Add(chanGroups...)
 
 	// Some statistics about the channels this way we can see how full they are getting
 
-	// TODO(apg): Make this ChanGroup specific
 	go func() {
 		for {
 			ctx := slog.Context{}
 			time.Sleep(10 * time.Second)
-			ctx.Sample("points.router.pending", len(channelGroup[Router]))
-			ctx.Sample("points.events.router.pending", len(channelGroup[EventsRouter]))
-			ctx.Sample("points.dyno.mem.pending", len(channelGroup[DynoMem]))
-			ctx.Sample("points.dyno.load.pending", len(channelGroup[DynoLoad]))
-			ctx.Sample("points.evetns.dyno.pending", len(channelGroup[EventsDyno]))
+			for _, group := range chanGroups {
+				group.Sample(ctx)
+			}
 			LogWithContext(ctx)
 		}
 	}()

@@ -111,6 +111,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		chanGroup := hashRing.Get(id)
+
 		msg := lp.Bytes()
 		switch {
 		case bytes.Equal(header.Name, Heroku), bytes.HasPrefix(header.Name, TokenPrefix):
@@ -135,7 +137,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					channelGroup[EventsRouter] <- []interface{}{timestamp, id, re.Code}
+					chanGroup.points[EventsRouter] <- []interface{}{timestamp, id, re.Code}
 
 				// likely a standard router log
 				default:
@@ -146,7 +148,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					channelGroup[Router] <- []interface{}{timestamp, id, rm.Status, rm.Service}
+					chanGroup.points[Router] <- []interface{}{timestamp, id, rm.Status, rm.Service}
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -161,7 +163,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 
 					what := string(lp.Header().Procid)
-					channelGroup[EventsDyno] <- []interface{}{
+					chanGroup.points[EventsDyno] <- []interface{}{
 						timestamp,
 						id,
 						what,
@@ -181,7 +183,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						channelGroup[DynoMem] <- []interface{}{
+						chanGroup.points[DynoMem] <- []interface{}{
 							timestamp,
 							id,
 							dm.Source,
@@ -205,7 +207,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						channelGroup[DynoLoad] <- []interface{}{
+						chanGroup.points[DynoLoad] <- []interface{}{
 							timestamp,
 							id,
 							dm.Source,
