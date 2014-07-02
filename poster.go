@@ -97,14 +97,15 @@ func (p *Poster) deliver(seriesGroup []*influx.Series) {
 	start := time.Now()
 	err := p.influxClient.WriteSeriesWithTimePrecision(seriesGroup, influx.Microsecond)
 
-	// TODO(apg): Figure out how we want these metrics
+	ctx.Add("source", p.name)
+
 	if err != nil {
-		ctx.Count("poster.error."+p.name+".points", pointCount)
-		ctx.MeasureSince("poster.error."+p.name+".time", start)
+		ctx.Count("poster.error.points", pointCount)
+		ctx.MeasureSince("poster.error.time", start)
 		log.Println(err)
 	} else {
-		ctx.Count("poster.deliver."+p.name+".points", pointCount)
-		ctx.MeasureSince("poster.success."+p.name+".time", start)
+		ctx.Count("poster.deliver.points", pointCount)
+		ctx.MeasureSince("poster.success.time", start)
 	}
 
 	for _, series := range seriesGroup {

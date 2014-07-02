@@ -82,9 +82,9 @@ func serveHealth(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 3; i++ {
 		// TODO: this should probably be the hostname.
-		name := fmt.Sprintf("host-%d", i)
+		name := fmt.Sprintf("lumbermill.ringnode.%d", i)
 		group := NewChanGroup(name, PointChannelCapacity)
 		chanGroups = append(chanGroups, group)
 
