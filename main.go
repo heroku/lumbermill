@@ -16,7 +16,7 @@ import (
 const (
 	PointChannelCapacity = 100000
 	HashRingReplication  = 20 // TODO: Needs to be determined
-	PostersPerHost       = 3  // TODO: Needs to be determined
+	PostersPerHost       = 6
 )
 
 const (

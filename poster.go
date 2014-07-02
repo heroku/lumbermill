@@ -74,29 +74,23 @@ func (p *Poster) Run() {
 				break
 			}
 		case <-timeout.C:
-			pointCount := 0
-			for _, s := range seriesGroup {
-				pointCount += len(s.Points)
-			}
-
-			if pointCount > 0 {
-				p.deliver(seriesGroup, pointCount)
-			}
+			p.deliver(seriesGroup)
 		}
 	}
 
+	p.deliver(seriesGroup)
+}
+
+func (p *Poster) deliver(seriesGroup []*influx.Series) {
 	pointCount := 0
 	for _, s := range seriesGroup {
 		pointCount += len(s.Points)
 	}
 
-	if pointCount > 0 {
-		p.deliver(seriesGroup, pointCount)
+	if pointCount == 0 {
+		return
 	}
 
-}
-
-func (p *Poster) deliver(seriesGroup []*influx.Series, count int) {
 	ctx := slog.Context{}
 	defer func() { LogWithContext(ctx) }()
 
@@ -105,11 +99,11 @@ func (p *Poster) deliver(seriesGroup []*influx.Series, count int) {
 
 	// TODO(apg): Figure out how we want these metrics
 	if err != nil {
-		ctx.Count("poster.error."+p.name+".points", count)
+		ctx.Count("poster.error."+p.name+".points", pointCount)
 		ctx.MeasureSince("poster.error."+p.name+".time", start)
 		log.Println(err)
 	} else {
-		ctx.Count("poster.deliver."+p.name+".points", count)
+		ctx.Count("poster.deliver."+p.name+".points", pointCount)
 		ctx.MeasureSince("poster.success."+p.name+".time", start)
 	}
 
