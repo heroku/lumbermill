@@ -84,7 +84,7 @@ func main() {
 
 	for i := 0; i < 3; i++ {
 		// TODO: this should probably be the hostname.
-		name := fmt.Sprintf("lumbermill.ringnode.%d", i)
+		name := fmt.Sprintf("ringnode.%d", i)
 		group := NewChanGroup(name, PointChannelCapacity)
 		chanGroups = append(chanGroups, group)
 
