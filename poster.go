@@ -15,7 +15,7 @@ type Poster struct {
 }
 
 func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGroup) *Poster {
-	influxClient, err := influx.NewClient(&influxClientConfig)
+	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {
 		panic(err)
