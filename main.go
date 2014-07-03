@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/heroku/slog"
@@ -29,22 +30,6 @@ const (
 )
 
 var (
-	influxClientConfig = influx.ClientConfig{
-		Host:     os.Getenv("INFLUXDB_HOST"), //"influxor.ssl.edward.herokudev.com:8086",
-		Username: os.Getenv("INFLUXDB_USER"), //"test",
-		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
-		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
-		IsSecure: true,
-		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
-				ResponseHeaderTimeout: 5 * time.Second,
-				Dial: func(network, address string) (net.Conn, error) {
-					return net.DialTimeout(network, address, 5*time.Second)
-				},
-			},
-		},
-	}
-
 	connectionCloser = make(chan struct{})
 
 	posters    = make([]*Poster, 0)
@@ -73,6 +58,35 @@ func LogWithContext(ctx slog.Context) {
 	log.Println(ctx)
 }
 
+func createInfluxDBClient(host string) influx.ClientConfig {
+	return influx.ClientConfig{
+		Host:     host, //"influxor.ssl.edward.herokudev.com:8086",
+		Username: os.Getenv("INFLUXDB_USER"), //"test",
+		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
+		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
+		IsSecure: true,
+		HttpClient: &http.Client{
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
+				ResponseHeaderTimeout: 5 * time.Second,
+				Dial: func(network, address string) (net.Conn, error) {
+					return net.DialTimeout(network, address, 5*time.Second)
+				},
+			},
+		},
+	}
+}
+
+func createClients(hostlist string) []influx.ClientConfig {
+	clients := make([]influx.ClientConfig, 0)
+	for _, host := range strings.Split(hostlist, ",") {
+		host = strings.Trim(host, "\t ")
+		if host != "" {
+			clients = append(clients, createInfluxDBClient(host))
+		}
+	}
+	return clients
+}
+
 // Health Checks, so just say 200 - OK
 // TODO: Actual healthcheck
 func serveHealth(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +96,19 @@ func serveHealth(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 
-	for i := 0; i < 3; i++ {
-		// TODO: this should probably be the hostname.
+	influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"))
+	if len(influxClients) == 0 {
+		log.Fatal("No InfluxDB Clients to connect to. Aborting!")
+	}
+
+	for i, client := range influxClients {
+		// TODO: make this the hostname, when we are actually sharding.
 		name := fmt.Sprintf("ringnode.%d", i)
 		group := NewChanGroup(name, PointChannelCapacity)
 		chanGroups = append(chanGroups, group)
 
 		for p := 0; p < PostersPerHost; p++ {
-			poster := NewPoster(influxClientConfig, name, group)
+			poster := NewPoster(client, name, group)
 			posters = append(posters, poster)
 			go poster.Run()
 		}
@@ -98,7 +117,6 @@ func main() {
 	hashRing.Add(chanGroups...)
 
 	// Some statistics about the channels this way we can see how full they are getting
-
 	go func() {
 		for {
 			ctx := slog.Context{}
