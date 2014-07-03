@@ -60,7 +60,7 @@ func LogWithContext(ctx slog.Context) {
 
 func createInfluxDBClient(host string) influx.ClientConfig {
 	return influx.ClientConfig{
-		Host:     host, //"influxor.ssl.edward.herokudev.com:8086",
+		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
 		Username: os.Getenv("INFLUXDB_USER"), //"test",
 		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
 		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
@@ -98,19 +98,23 @@ func main() {
 
 	influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"))
 	if len(influxClients) == 0 {
-		log.Fatal("No InfluxDB Clients to connect to. Aborting!")
-	}
-
-	for i, client := range influxClients {
-		// TODO: make this the hostname, when we are actually sharding.
-		name := fmt.Sprintf("ringnode.%d", i)
-		group := NewChanGroup(name, PointChannelCapacity)
+		//No backends, so blackhole things
+		group := NewChanGroup("null", PointChannelCapacity)
 		chanGroups = append(chanGroups, group)
+		poster := NewNullPoster(group)
+		go poster.Run()
+	} else {
+		for i, client := range influxClients {
+			// TODO: make this the hostname, when we are actually sharding.
+			name := fmt.Sprintf("ringnode.%d", i)
+			group := NewChanGroup(name, PointChannelCapacity)
+			chanGroups = append(chanGroups, group)
 
-		for p := 0; p < PostersPerHost; p++ {
-			poster := NewPoster(client, name, group)
-			posters = append(posters, poster)
-			go poster.Run()
+			for p := 0; p < PostersPerHost; p++ {
+				poster := NewPoster(client, name, group)
+				posters = append(posters, poster)
+				go poster.Run()
+			}
 		}
 	}
 
