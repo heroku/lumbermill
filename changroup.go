@@ -25,6 +25,6 @@ func (g *ChanGroup) Sample(ctx slog.Context) {
 	ctx.Add("source", g.Name)
 	for i := 0; i < numSeries; i++ {
 		// TODO: If we set the ChanGroup.Name to be the hostname, this might need to change.
-		ctx.Sample(fmt.Sprintf("points.%s.pending", g.Name, seriesNames[i]), len(g.points[i]))
+		ctx.Sample(fmt.Sprintf("points.%s.pending", seriesNames[i]), len(g.points[i]))
 	}
 }
