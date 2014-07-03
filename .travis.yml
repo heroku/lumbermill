@@ -9,3 +9,12 @@ before_install:
 script:
  - godep go test -v ./...
 
+notifications:
+  email: false
+  hipchat:
+    rooms:
+      secure: "G194ba7OZr1XxYdRe3RHPH5Qa9HfPJ9tNuDD2LGWDO1KCroMmWl3193k+OB5/C2ntiewD8sS6/P/ncoQxpBhPCMLACok8xrtId1W+HilXavW3X/pBgwNzJlh760R7SHbGoeniuS9wVDPJgTIKlrnw+QH4lmBRS3Kp/lEw0mCSK0="
+
+    template:
+      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}'
+
