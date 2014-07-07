@@ -11,13 +11,30 @@ import (
 	"time"
 
 	"github.com/bmizerany/lpx"
-	"github.com/heroku/slog"
 	"github.com/kr/logfmt"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 var (
 	TokenPrefix = []byte("t.")
 	Heroku      = []byte("heroku")
+
+	// go-metrics Instruments
+	wrongMethodErrorCounter   = metrics.NewRegisteredCounter("lumbermill.errors.drain.wrong.method", metrics.DefaultRegistry)
+	authFailureCounter        = metrics.NewRegisteredCounter("lumbermill.errors.auth.failure", metrics.DefaultRegistry)
+	tokenMissingCounter       = metrics.NewRegisteredCounter("lumbermill.errors.token.missing", metrics.DefaultRegistry)
+	timeParsingErrorCounter   = metrics.NewRegisteredCounter("lumbermill.errors.time.parse", metrics.DefaultRegistry)
+	logfmtParsingErrorCounter = metrics.NewRegisteredCounter("lumbermill.errors.logfmt.parse", metrics.DefaultRegistry)
+	batchCounter              = metrics.NewRegisteredCounter("lumbermill.batch", metrics.DefaultRegistry)
+	linesCounter              = metrics.NewRegisteredCounter("lumbermill.lines", metrics.DefaultRegistry)
+	routerErrorLinesCounter   = metrics.NewRegisteredCounter("lumbermill.lines.router.error", metrics.DefaultRegistry)
+	routerLinesCounter        = metrics.NewRegisteredCounter("lumbermill.lines.router", metrics.DefaultRegistry)
+	dynoErrorLinesCounter     = metrics.NewRegisteredCounter("lumbermill.lines.dyno.error", metrics.DefaultRegistry)
+	dynoMemLinesCounter       = metrics.NewRegisteredCounter("lumbermill.lines.dyno.mem", metrics.DefaultRegistry)
+	dynoLoadLinesCounter      = metrics.NewRegisteredCounter("lumbermill.lines.dyno.load", metrics.DefaultRegistry)
+	unknownHerokuLinesCounter = metrics.NewRegisteredCounter("lumbermill.lines.unknown.heroku", metrics.DefaultRegistry)
+	unknownUserLinesCounter   = metrics.NewRegisteredCounter("lumbermill.lines.unknown.user", metrics.DefaultRegistry)
+	parseTimer                = metrics.NewRegisteredTimer("lumbermill.batches.parse.time", metrics.DefaultRegistry)
 )
 
 func checkAuth(r *http.Request) error {
@@ -69,13 +86,11 @@ func dynoType(what string) string {
 // "Parse tree" from hell
 func serveDrain(w http.ResponseWriter, r *http.Request) {
 
-	ctx := slog.Context{}
-	defer func() { LogWithContext(ctx) }()
 	w.Header().Set("Content-Length", "0")
 
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		ctx.Count("errors.drain.wrong.method", 1)
+		wrongMethodErrorCounter.Inc(1)
 		return
 	}
 
@@ -84,18 +99,18 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		if err := checkAuth(r); err != nil {
 			w.WriteHeader(http.StatusForbidden)
-			ctx.Count("errors.auth.failure", 1)
+			authFailureCounter.Inc(1)
 			return
 		}
 	}
 
-	ctx.Count("batch", 1)
+	batchCounter.Inc(1)
 
 	parseStart := time.Now()
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 
 	for lp.Next() {
-		ctx.Count("lines.total", 1)
+		linesCounter.Inc(1)
 		header := lp.Header()
 
 		// If the syslog App Name Header field containts what looks like a log token,
@@ -107,7 +122,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 		// If we still don't have an id, throw an error and try the next line
 		if id == "" {
-			ctx.Count("errors.token.missing", 1)
+			tokenMissingCounter.Inc(1)
 			continue
 		}
 
@@ -118,6 +133,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		case bytes.Equal(header.Name, Heroku), bytes.HasPrefix(header.Name, TokenPrefix):
 			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
 			if e != nil {
+				timeParsingErrorCounter.Inc(1)
 				log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
 				continue
 			}
@@ -130,10 +146,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// router logs with a H error code in them
 				case bytes.Contains(msg, keyCodeH):
-					ctx.Count("lines.router.error", 1)
+					routerErrorLinesCounter.Inc(1)
 					re := routerError{}
 					err := logfmt.Unmarshal(msg, &re)
 					if err != nil {
+						logfmtParsingErrorCounter.Inc(1)
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -141,10 +158,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// likely a standard router log
 				default:
-					ctx.Count("lines.router", 1)
+					routerLinesCounter.Inc(1)
 					rm := routerMsg{}
 					err := logfmt.Unmarshal(msg, &rm)
 					if err != nil {
+						logfmtParsingErrorCounter.Inc(1)
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -156,7 +174,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// Dyno error messages
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
-					ctx.Count("lines.dyno.error", 1)
+					dynoErrorLinesCounter.Inc(1)
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
@@ -175,10 +193,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// Dyno log-runtime-metrics memory messages
 				case bytes.Contains(msg, dynoMemMsgSentinel):
-					ctx.Count("lines.dyno.mem", 1)
+					dynoMemLinesCounter.Inc(1)
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
+						logfmtParsingErrorCounter.Inc(1)
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -199,10 +218,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					// Dyno log-runtime-metrics load messages
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
-					ctx.Count("lines.dyno.load", 1)
+					dynoLoadLinesCounter.Inc(1)
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
+						logfmtParsingErrorCounter.Inc(1)
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -220,7 +240,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// unknown
 				default:
-					ctx.Count("lines.unknown.heroku", 1)
+					unknownHerokuLinesCounter.Inc(1)
 					if Debug {
 						log.Printf("Unknown Heroku Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 							header.PrivalVersion,
@@ -237,7 +257,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 		// non heroku lines
 		default:
-			ctx.Count("lines.unknown.user", 1)
+			unknownUserLinesCounter.Inc(1)
 			if Debug {
 				log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 					header.PrivalVersion,
@@ -251,7 +271,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	ctx.MeasureSince("lines.parse.time", parseStart)
+	parseTimer.UpdateSince(parseStart)
 
 	// If we are told to close the connection after the reply, do so.
 	select {

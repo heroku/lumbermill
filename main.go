@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	metrics "github.com/rcrowley/go-metrics"
+	librato "github.com/rcrowley/go-metrics/librato"
+
 	"github.com/heroku/slog"
 	influx "github.com/influxdb/influxdb-go"
 )
@@ -120,17 +123,15 @@ func main() {
 
 	hashRing.Add(chanGroups...)
 
-	// Some statistics about the channels this way we can see how full they are getting
-	go func() {
-		for {
-			ctx := slog.Context{}
-			time.Sleep(10 * time.Second)
-			for _, group := range chanGroups {
-				group.Sample(ctx)
-			}
-			LogWithContext(ctx)
-		}
-	}()
+	go librato.Librato(
+		metrics.DefaultRegistry,
+		2e10,
+		os.Getenv("LIBRATO_OWNER"),
+		os.Getenv("LIBRATO_TOKEN"),
+		"prod",
+		[]float64{50, 95, 99},
+		time.Second,
+	)
 
 	// Every 5 minutes, signal that the connection should be closed
 	// This should allow for a slow balancing of connections.

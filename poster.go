@@ -4,14 +4,18 @@ import (
 	"log"
 	"time"
 
-	"github.com/heroku/slog"
 	influx "github.com/influxdb/influxdb-go"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 type Poster struct {
-	chanGroup    *ChanGroup
-	name         string
-	influxClient *influx.Client
+	chanGroup            *ChanGroup
+	name                 string
+	influxClient         *influx.Client
+	pointsSuccessCounter metrics.Counter
+	pointsSuccessTime    metrics.Timer
+	pointsFailureCounter metrics.Counter
+	pointsFailureTime    metrics.Timer
 }
 
 func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGroup) *Poster {
@@ -22,9 +26,13 @@ func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGro
 	}
 
 	return &Poster{
-		chanGroup:    chanGroup,
-		name:         name,
-		influxClient: influxClient,
+		chanGroup:            chanGroup,
+		name:                 name,
+		influxClient:         influxClient,
+		pointsSuccessCounter: metrics.NewRegisteredCounter("lumbermill.poster.deliver.points."+name, metrics.DefaultRegistry),
+		pointsSuccessTime:    metrics.NewRegisteredTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
+		pointsFailureCounter: metrics.NewRegisteredCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
+		pointsFailureTime:    metrics.NewRegisteredTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
 	}
 }
 
@@ -91,21 +99,16 @@ func (p *Poster) deliver(seriesGroup []*influx.Series) {
 		return
 	}
 
-	ctx := slog.Context{}
-	defer func() { LogWithContext(ctx) }()
-
 	start := time.Now()
 	err := p.influxClient.WriteSeriesWithTimePrecision(seriesGroup, influx.Microsecond)
 
-	ctx.Add("source", p.name)
-
 	if err != nil {
-		ctx.Count("poster.error.points", pointCount)
-		ctx.MeasureSince("poster.error.time", start)
+		p.pointsFailureCounter.Inc(1)
+		p.pointsFailureTime.UpdateSince(start)
 		log.Println(err)
 	} else {
-		ctx.Count("poster.deliver.points", pointCount)
-		ctx.MeasureSince("poster.success.time", start)
+		p.pointsSuccessCounter.Inc(1)
+		p.pointsSuccessTime.UpdateSince(start)
 	}
 
 	for _, series := range seriesGroup {
