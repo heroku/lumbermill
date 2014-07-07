@@ -125,10 +125,10 @@ func main() {
 
 	go librato.Librato(
 		metrics.DefaultRegistry,
-		2e10,
+		2e10, // 20s
 		os.Getenv("LIBRATO_OWNER"),
 		os.Getenv("LIBRATO_TOKEN"),
-		"prod",
+		os.Getenv("LIBRATO_SOURCE"),
 		[]float64{50, 95, 99},
 		time.Second,
 	)
