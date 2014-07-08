@@ -86,9 +86,9 @@ func dynoType(what string) string {
 
 // Post the point to a given channel, or increment a counter if channel is full
 func postPoint(out chan []interface{}, point []interface{}) {
-	if len(out) < cap(out) {
-		out <- point
-	} else {
+	select {
+	case out <- point:
+	default:
 		droppedErrorCounter.Inc(1)
 	}
 }
@@ -151,7 +151,6 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 			}
-
 
 			timestamp := t.UnixNano() / int64(time.Microsecond)
 
@@ -243,6 +242,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
+
 						postPoint(chanGroup.points[DynoLoad], []interface{}{
 							timestamp,
 							id,
