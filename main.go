@@ -129,7 +129,7 @@ func main() {
 		os.Getenv("LIBRATO_OWNER"),
 		os.Getenv("LIBRATO_TOKEN"),
 		os.Getenv("LIBRATO_SOURCE"),
-		[]float64{50, 95, 99},
+		[]float64{0.50, 0.95, 0.99},
 		time.Second,
 	)
 
