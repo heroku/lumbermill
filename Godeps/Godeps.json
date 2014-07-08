@@ -20,7 +20,7 @@
 		},
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
-			"Rev": "8e5d306d7101ab54199e038f08374e6d6a2ebc58"
+			"Rev": "3be59ceb5538550555459fb77d0efe0e218cdfc7"
 		}
 	]
 }
