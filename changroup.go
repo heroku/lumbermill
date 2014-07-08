@@ -20,10 +20,9 @@ func NewChanGroup(name string, chanCap int) *ChanGroup {
 
 	for i := 0; i < numSeries; i++ {
 		group.points[i] = make(chan []interface{}, chanCap)
-		group.depthGauges[i] = metrics.NewGauge()
-		metrics.DefaultRegistry.Register(
-			fmt.Sprintf("lumbermill.points.%s.pending", seriesNames[i]),
-			group.depthGauges[i],
+		group.depthGauges[i] = metrics.NewRegisteredGauge(
+			fmt.Sprintf("lumbermill.points.pending.%s.%s", seriesNames[i], name),
+			metrics.DefaultRegistry,
 		)
 	}
 
