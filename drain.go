@@ -271,6 +271,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
 	parseTimer.UpdateSince(parseStart)
 
 	// If we are told to close the connection after the reply, do so.

@@ -130,7 +130,7 @@ func main() {
 		os.Getenv("LIBRATO_TOKEN"),
 		os.Getenv("LIBRATO_SOURCE"),
 		[]float64{0.50, 0.95, 0.99},
-		time.Second,
+		time.Millisecond,
 	)
 
 	// Every 5 minutes, signal that the connection should be closed
