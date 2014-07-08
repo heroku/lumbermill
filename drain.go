@@ -131,12 +131,18 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 		msg := lp.Bytes()
 		switch {
 		case bytes.Equal(header.Name, Heroku), bytes.HasPrefix(header.Name, TokenPrefix):
-			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", string(lp.Header().Time))
+			timeStr := string(lp.Header().Time)
+			t, e := time.Parse("2006-01-02T15:04:05.000000+00:00", timeStr)
 			if e != nil {
-				timeParsingErrorCounter.Inc(1)
-				log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
-				continue
+				t, e = time.Parse("2006-01-02T15:04:05+00:00", timeStr)
+				if e != nil {
+					timeParsingErrorCounter.Inc(1)
+					log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
+					continue
+				}
 			}
+
+
 			timestamp := t.UnixNano() / int64(time.Microsecond)
 
 			pid := string(header.Procid)
