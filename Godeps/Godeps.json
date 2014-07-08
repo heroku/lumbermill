@@ -17,6 +17,10 @@
 		{
 			"ImportPath": "github.com/kr/logfmt",
 			"Rev": "6df6d8c89fdf56b969d91e58f86e3ee494fcdeb7"
+		},
+		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "8e5d306d7101ab54199e038f08374e6d6a2ebc58"
 		}
 	]
 }
