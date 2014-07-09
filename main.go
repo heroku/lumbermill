@@ -144,5 +144,6 @@ func main() {
 
 	http.HandleFunc("/drain", serveDrain)
 	http.HandleFunc("/health", serveHealth)
+	http.HandleFunc("/target/", serveTarget)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
