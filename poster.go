@@ -8,6 +8,8 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
+var deliverySizeHistogram = metrics.NewRegisteredHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
+
 type Poster struct {
 	chanGroup            *ChanGroup
 	name                 string
@@ -109,6 +111,7 @@ func (p *Poster) deliver(seriesGroup []*influx.Series) {
 	} else {
 		p.pointsSuccessCounter.Inc(1)
 		p.pointsSuccessTime.UpdateSince(start)
+		deliverySizeHistogram.Update(int64(pointCount))
 	}
 
 	for _, series := range seriesGroup {
