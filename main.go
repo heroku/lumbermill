@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"net"
 	"net/http"
@@ -48,7 +49,11 @@ var (
 		[]string{"time", "id", "what", "type", "code", "message", "dynoType"},                                                                        // DynoEvents
 	}
 
-	hashRing = NewHashRing(HashRingReplication, nil)
+	hashRing = NewHashRing(HashRingReplication, func (data []byte) uint32 {
+			a := fnv.New32a()
+			a.Write(data)
+			return a.Sum32()
+	})
 
 	Debug = os.Getenv("DEBUG") == "true"
 
