@@ -36,6 +36,7 @@ var (
 	unknownHerokuLinesCounter = metrics.NewRegisteredCounter("lumbermill.lines.unknown.heroku", metrics.DefaultRegistry)
 	unknownUserLinesCounter   = metrics.NewRegisteredCounter("lumbermill.lines.unknown.user", metrics.DefaultRegistry)
 	parseTimer                = metrics.NewRegisteredTimer("lumbermill.batches.parse.time", metrics.DefaultRegistry)
+	batchSizeHistogram        = metrics.NewRegisteredHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 )
 
 func checkAuth(r *http.Request) error {
@@ -119,8 +120,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	parseStart := time.Now()
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 
+	// counter.Inc() locks, let's defer til the end.
+	linesCounterInc := 0
+
 	for lp.Next() {
-		linesCounter.Inc(1)
+		linesCounterInc += 1
 		header := lp.Header()
 
 		// If the syslog App Name Header field containts what looks like a log token,
@@ -242,7 +246,6 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-
 						postPoint(chanGroup.points[DynoLoad], []interface{}{
 							timestamp,
 							id,
@@ -287,6 +290,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	linesCounter.Inc(int64(linesCounterInc))
+
+	batchSizeHistogram.Update(int64(linesCounterInc))
 
 	parseTimer.UpdateSince(parseStart)
 
