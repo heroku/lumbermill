@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"hash/fnv"
 	"log"
 	"net"
@@ -112,9 +111,8 @@ func main() {
 		poster := NewNullPoster(group)
 		go poster.Run()
 	} else {
-		for i, client := range influxClients {
-			// TODO: make this the hostname, when we are actually sharding.
-			name := fmt.Sprintf("ringnode.%d", i)
+		for _, client := range influxClients {
+			name := client.Host
 			group := NewChanGroup(name, PointChannelCapacity)
 			chanGroups = append(chanGroups, group)
 
