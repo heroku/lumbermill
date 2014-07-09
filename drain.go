@@ -25,6 +25,7 @@ var (
 	tokenMissingCounter       = metrics.NewRegisteredCounter("lumbermill.errors.token.missing", metrics.DefaultRegistry)
 	timeParsingErrorCounter   = metrics.NewRegisteredCounter("lumbermill.errors.time.parse", metrics.DefaultRegistry)
 	logfmtParsingErrorCounter = metrics.NewRegisteredCounter("lumbermill.errors.logfmt.parse", metrics.DefaultRegistry)
+	droppedErrorCounter       = metrics.NewRegisteredCounter("lumbermill.errors.dropped", metrics.DefaultRegistry)
 	batchCounter              = metrics.NewRegisteredCounter("lumbermill.batch", metrics.DefaultRegistry)
 	linesCounter              = metrics.NewRegisteredCounter("lumbermill.lines", metrics.DefaultRegistry)
 	routerErrorLinesCounter   = metrics.NewRegisteredCounter("lumbermill.lines.router.error", metrics.DefaultRegistry)
@@ -81,6 +82,15 @@ func checkAuth(r *http.Request) error {
 func dynoType(what string) string {
 	s := strings.Split(what, ".")
 	return s[0]
+}
+
+// Post the point to a given channel, or increment a counter if channel is full
+func postPoint(out chan []interface{}, point []interface{}) {
+	select {
+	case out <- point:
+	default:
+		droppedErrorCounter.Inc(1)
+	}
 }
 
 // "Parse tree" from hell
@@ -142,7 +152,6 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-
 			timestamp := t.UnixNano() / int64(time.Microsecond)
 
 			pid := string(header.Procid)
@@ -160,7 +169,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					chanGroup.points[EventsRouter] <- []interface{}{timestamp, id, re.Code}
+					postPoint(chanGroup.points[EventsRouter], []interface{}{timestamp, id, re.Code})
 
 				// likely a standard router log
 				default:
@@ -172,7 +181,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
-					chanGroup.points[Router] <- []interface{}{timestamp, id, rm.Status, rm.Service}
+					postPoint(chanGroup.points[Router], []interface{}{timestamp, id, rm.Status, rm.Service})
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -187,7 +196,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 
 					what := string(lp.Header().Procid)
-					chanGroup.points[EventsDyno] <- []interface{}{
+					postPoint(chanGroup.points[EventsDyno], []interface{}{
 						timestamp,
 						id,
 						what,
@@ -195,7 +204,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						de.Code,
 						string(msg),
 						dynoType(what),
-					}
+					})
 
 				// Dyno log-runtime-metrics memory messages
 				case bytes.Contains(msg, dynoMemMsgSentinel):
@@ -208,7 +217,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						chanGroup.points[DynoMem] <- []interface{}{
+						postPoint(chanGroup.points[DynoMem], []interface{}{
 							timestamp,
 							id,
 							dm.Source,
@@ -219,7 +228,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 							dm.MemorySwap,
 							dm.MemoryTotal,
 							dynoType(dm.Source),
-						}
+						})
 					}
 
 					// Dyno log-runtime-metrics load messages
@@ -233,7 +242,8 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						chanGroup.points[DynoLoad] <- []interface{}{
+
+						postPoint(chanGroup.points[DynoLoad], []interface{}{
 							timestamp,
 							id,
 							dm.Source,
@@ -241,7 +251,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 							dm.LoadAvg5Min,
 							dm.LoadAvg15Min,
 							dynoType(dm.Source),
-						}
+						})
 					}
 
 				// unknown
