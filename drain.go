@@ -36,6 +36,7 @@ var (
 	unknownHerokuLinesCounter = metrics.NewRegisteredCounter("lumbermill.lines.unknown.heroku", metrics.DefaultRegistry)
 	unknownUserLinesCounter   = metrics.NewRegisteredCounter("lumbermill.lines.unknown.user", metrics.DefaultRegistry)
 	parseTimer                = metrics.NewRegisteredTimer("lumbermill.batches.parse.time", metrics.DefaultRegistry)
+	batchSizeHistogram        = metrics.NewRegisteredHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 )
 
 func checkAuth(r *http.Request) error {
@@ -119,8 +120,21 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	parseStart := time.Now()
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
 
+	// counter.Inc() locks, let's defer til the end.
+	linesCounterInc := 0
+	tokenMissingCounterInc := 0
+	dynoErrorLinesCounterInc := 0
+	dynoLoadLinesCounterInc := 0
+	dynoMemLinesCounterInc := 0
+	logfmtParsingErrorCounterInc := 0
+	routerErrorLinesCounterInc := 0
+	routerLinesCounterInc := 0
+	timeParsingErrorCounterInc := 0
+	unknownHerokuLinesCounterInc := 0
+	unknownUserLinesCounterInc := 0
+
 	for lp.Next() {
-		linesCounter.Inc(1)
+		linesCounterInc += 1
 		header := lp.Header()
 
 		// If the syslog App Name Header field containts what looks like a log token,
@@ -132,7 +146,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 		// If we still don't have an id, throw an error and try the next line
 		if id == "" {
-			tokenMissingCounter.Inc(1)
+			tokenMissingCounterInc += 1
 			continue
 		}
 
@@ -146,7 +160,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			if e != nil {
 				t, e = time.Parse("2006-01-02T15:04:05+00:00", timeStr)
 				if e != nil {
-					timeParsingErrorCounter.Inc(1)
+					timeParsingErrorCounterInc += 1
 					log.Printf("Error Parsing Time(%s): %q\n", string(lp.Header().Time), e)
 					continue
 				}
@@ -161,11 +175,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// router logs with a H error code in them
 				case bytes.Contains(msg, keyCodeH):
-					routerErrorLinesCounter.Inc(1)
+					routerErrorLinesCounterInc += 1
 					re := routerError{}
 					err := logfmt.Unmarshal(msg, &re)
 					if err != nil {
-						logfmtParsingErrorCounter.Inc(1)
+						logfmtParsingErrorCounterInc += 1
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -173,11 +187,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// likely a standard router log
 				default:
-					routerLinesCounter.Inc(1)
+					routerLinesCounterInc += 1
 					rm := routerMsg{}
 					err := logfmt.Unmarshal(msg, &rm)
 					if err != nil {
-						logfmtParsingErrorCounter.Inc(1)
+						logfmtParsingErrorCounterInc += 1
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -189,7 +203,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 				switch {
 				// Dyno error messages
 				case bytes.HasPrefix(msg, dynoErrorSentinel):
-					dynoErrorLinesCounter.Inc(1)
+					dynoErrorLinesCounterInc += 1
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
 						log.Printf("Unable to parse dyno error message: %q\n", err)
@@ -208,11 +222,11 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// Dyno log-runtime-metrics memory messages
 				case bytes.Contains(msg, dynoMemMsgSentinel):
-					dynoMemLinesCounter.Inc(1)
+					dynoMemLinesCounterInc += 1
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
-						logfmtParsingErrorCounter.Inc(1)
+						logfmtParsingErrorCounterInc += 1
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
@@ -233,16 +247,15 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					// Dyno log-runtime-metrics load messages
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
-					dynoLoadLinesCounter.Inc(1)
+					dynoLoadLinesCounterInc += 1
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
-						logfmtParsingErrorCounter.Inc(1)
+						logfmtParsingErrorCounterInc += 1
 						log.Printf("logfmt unmarshal error: %s\n", err)
 						continue
 					}
 					if dm.Source != "" {
-
 						postPoint(chanGroup.points[DynoLoad], []interface{}{
 							timestamp,
 							id,
@@ -256,7 +269,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// unknown
 				default:
-					unknownHerokuLinesCounter.Inc(1)
+					unknownHerokuLinesCounterInc += 1
 					if Debug {
 						log.Printf("Unknown Heroku Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 							header.PrivalVersion,
@@ -273,7 +286,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 		// non heroku lines
 		default:
-			unknownUserLinesCounter.Inc(1)
+			unknownUserLinesCounterInc += 1
 			if Debug {
 				log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 					header.PrivalVersion,
@@ -287,6 +300,20 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	linesCounter.Inc(int64(linesCounterInc))
+	tokenMissingCounter.Inc(int64(tokenMissingCounterInc))
+	dynoErrorLinesCounter.Inc(int64(dynoErrorLinesCounterInc))
+	dynoLoadLinesCounter.Inc(int64(dynoLoadLinesCounterInc))
+	dynoMemLinesCounter.Inc(int64(dynoMemLinesCounterInc))
+	logfmtParsingErrorCounter.Inc(int64(logfmtParsingErrorCounterInc))
+	routerErrorLinesCounter.Inc(int64(routerErrorLinesCounterInc))
+	routerLinesCounter.Inc(int64(routerLinesCounterInc))
+	timeParsingErrorCounter.Inc(int64(timeParsingErrorCounterInc))
+	unknownHerokuLinesCounter.Inc(int64(unknownHerokuLinesCounterInc))
+	unknownUserLinesCounter.Inc(int64(unknownUserLinesCounterInc))
+
+	batchSizeHistogram.Update(int64(linesCounterInc))
 
 	parseTimer.UpdateSince(parseStart)
 
