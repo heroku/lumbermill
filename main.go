@@ -19,7 +19,7 @@ import (
 
 const (
 	PointChannelCapacity = 100000
-	HashRingReplication  = 20 // TODO: Needs to be determined
+	HashRingReplication  = 46 // TODO: Needs to be determined
 	PostersPerHost       = 6
 )
 
@@ -48,10 +48,10 @@ var (
 		[]string{"time", "id", "what", "type", "code", "message", "dynoType"},                                                                        // DynoEvents
 	}
 
-	hashRing = NewHashRing(HashRingReplication, func (data []byte) uint32 {
-			a := fnv.New32a()
-			a.Write(data)
-			return a.Sum32()
+	hashRing = NewHashRing(HashRingReplication, func(data []byte) uint32 {
+		a := fnv.New32a()
+		a.Write(data)
+		return a.Sum32()
 	})
 
 	Debug = os.Getenv("DEBUG") == "true"
