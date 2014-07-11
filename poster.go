@@ -61,7 +61,6 @@ func (p *Poster) Run() {
 					series = makeSeries(point)
 				}
 				series.Points = append(series.Points, point.Points)
-				allSeries[seriesName] = series
 			} else {
 				break
 			}
