@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	metrics "github.com/rcrowley/go-metrics"
@@ -18,7 +17,7 @@ func NewDestination(name string, chanCap int) *Destination {
 	destination := &Destination{Name: name}
 	destination.points = make(chan Point, chanCap)
 	destination.depthGauge = metrics.NewRegisteredGauge(
-		fmt.Sprintf("lumbermill.points.pending.", name),
+		"lumbermill.points.pending."+name,
 		metrics.DefaultRegistry,
 	)
 
