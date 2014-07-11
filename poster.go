@@ -75,7 +75,7 @@ func (p *Poster) Run() {
 
 func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 	pointCount := 0
-	seriesGroup := make([]*influx.Series, len(allSeries))
+	seriesGroup := make([]*influx.Series, 0, len(allSeries))
 
 	for _, s := range allSeries {
 		pointCount += len(s.Points)
