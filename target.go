@@ -23,15 +23,15 @@ func serveTarget(w http.ResponseWriter, r *http.Request) {
 
 	id := parts[2]
 
-	chanGroup := hashRing.Get(id)
+	destination := hashRing.Get(id)
 
-	if chanGroup == nil {
+	if destination == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		internalServerErrorCounter.Inc(1)
 		return
 	}
 
-	response := []byte("{ \"host\": \"" + chanGroup.Name + "\" }")
+	response := []byte("{ \"host\": \"" + destination.Name + "\" }")
 	headers := w.Header()
 	headers.Set("Content-Length", fmt.Sprintf("%d", len(response)))
 	headers.Set("Content-Type", "application/json")

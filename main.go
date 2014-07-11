@@ -26,8 +26,8 @@ const (
 var (
 	connectionCloser = make(chan struct{})
 
-	posters    = make([]*Poster, 0)
-	chanGroups = make([]*ChanGroup, 0)
+	posters      = make([]*Poster, 0)
+	destinations = make([]*Destination, 0)
 
 	hashRing = NewHashRing(HashRingReplication, func(data []byte) uint32 {
 		a := fnv.New32a()
@@ -87,24 +87,24 @@ func main() {
 	influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"))
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
-		group := NewChanGroup("null", PointChannelCapacity)
-		chanGroups = append(chanGroups, group)
-		poster := NewNullPoster(group)
+		destination := NewDestination("null", PointChannelCapacity)
+		destinations = append(destinations, destination)
+		poster := NewNullPoster(destination)
 		go poster.Run()
 	} else {
 		for _, client := range influxClients {
-			group := NewChanGroup(client.Host, PointChannelCapacity)
-			chanGroups = append(chanGroups, group)
+			destination := NewDestination(client.Host, PointChannelCapacity)
+			destinations = append(destinations, destination)
 
 			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, client.Host, group)
+				poster := NewPoster(client, client.Host, destination)
 				posters = append(posters, poster)
 				go poster.Run()
 			}
 		}
 	}
 
-	hashRing.Add(chanGroups...)
+	hashRing.Add(destinations...)
 
 	go librato.Librato(
 		metrics.DefaultRegistry,

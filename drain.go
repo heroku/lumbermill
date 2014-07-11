@@ -137,7 +137,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		chanGroup := hashRing.Get(id)
+		destination := hashRing.Get(id)
 
 		msg := lp.Bytes()
 		switch {
@@ -169,7 +169,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						handleLogFmtParsingError(err)
 						continue
 					}
-					chanGroup.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
+					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
 
 				// likely a standard router log
 				default:
@@ -181,7 +181,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					chanGroup.PostPoint(Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}})
+					destination.PostPoint(Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}})
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -197,7 +197,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 
 					what := string(lp.Header().Procid)
-					chanGroup.PostPoint(
+					destination.PostPoint(
 						Point{id, EventsDyno, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
 					)
 
@@ -211,7 +211,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						chanGroup.PostPoint(
+						destination.PostPoint(
 							Point{
 								id,
 								DynoMem,
@@ -240,7 +240,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						chanGroup.PostPoint(
+						destination.PostPoint(
 							Point{
 								id,
 								DynoLoad,

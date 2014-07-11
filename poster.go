@@ -11,7 +11,7 @@ import (
 var deliverySizeHistogram = metrics.NewRegisteredHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 type Poster struct {
-	chanGroup            *ChanGroup
+	destination          *Destination
 	name                 string
 	influxClient         *influx.Client
 	pointsSuccessCounter metrics.Counter
@@ -20,7 +20,7 @@ type Poster struct {
 	pointsFailureTime    metrics.Timer
 }
 
-func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGroup) *Poster {
+func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination) *Poster {
 	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {
@@ -28,7 +28,7 @@ func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGro
 	}
 
 	return &Poster{
-		chanGroup:            chanGroup,
+		destination:          destination,
 		name:                 name,
 		influxClient:         influxClient,
 		pointsSuccessCounter: metrics.NewRegisteredCounter("lumbermill.poster.deliver.points."+name, metrics.DefaultRegistry),
@@ -53,7 +53,7 @@ func (p *Poster) Run() {
 
 	for {
 		select {
-		case point, open := <-p.chanGroup.points:
+		case point, open := <-p.destination.points:
 			if open {
 				seriesName := point.SeriesName()
 				series, found := allSeries[seriesName]

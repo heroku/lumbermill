@@ -34,16 +34,16 @@ func TestHashing(t *testing.T) {
 		return uint32(i)
 	})
 
-	two := NewChanGroup("2", 1)
-	four := NewChanGroup("4", 1)
-	six := NewChanGroup("6", 1)
-	eight := NewChanGroup("8", 1)
+	two := NewDestination("2", 1)
+	four := NewDestination("4", 1)
+	six := NewDestination("6", 1)
+	eight := NewDestination("8", 1)
 
 	// Given the above hash function, this will give replicas with "hashes":
 	// 2, 4, 6, 12, 14, 16, 22, 24, 26
 	hash.Add(six, four, two)
 
-	testCases := map[string]*ChanGroup{
+	testCases := map[string]*Destination{
 		"2":  two,
 		"11": two,
 		"23": four,
@@ -74,12 +74,12 @@ func TestConsistency(t *testing.T) {
 	hash1 := NewHashRing(1, nil)
 	hash2 := NewHashRing(1, nil)
 
-	ben := NewChanGroup("Ben", 1)
-	becky := NewChanGroup("Becky", 1)
-	bill := NewChanGroup("Bill", 1)
-	bob := NewChanGroup("Bob", 1)
-	bobby := NewChanGroup("Bobby", 1)
-	bonny := NewChanGroup("Bonny", 1)
+	ben := NewDestination("Ben", 1)
+	becky := NewDestination("Becky", 1)
+	bill := NewDestination("Bill", 1)
+	bob := NewDestination("Bob", 1)
+	bobby := NewDestination("Bobby", 1)
+	bonny := NewDestination("Bonny", 1)
 
 	hash1.Add(bill, bob, bonny)
 	hash2.Add(bob, bonny, bill)

@@ -15,7 +15,7 @@ limitations under the License.
 
 Changelog:
 
- - 2014-07-02 (apg): Modified to support storing a ChanGroup instead
+ - 2014-07-02 (apg): Modified to support storing a Destination instead
    of string key
 
 */
@@ -34,14 +34,14 @@ type HashRing struct {
 	hash     HashFn
 	replicas int
 	keys     []int // Sorted
-	hashMap  map[int]*ChanGroup
+	hashMap  map[int]*Destination
 }
 
 func NewHashRing(replicas int, fn HashFn) *HashRing {
 	m := &HashRing{
 		replicas: replicas,
 		hash:     fn,
-		hashMap:  make(map[int]*ChanGroup),
+		hashMap:  make(map[int]*Destination),
 	}
 	if m.hash == nil {
 		m.hash = crc32.ChecksumIEEE
@@ -55,19 +55,19 @@ func (m *HashRing) IsEmpty() bool {
 }
 
 // Adds some keys to the hash.
-func (m *HashRing) Add(groups ...*ChanGroup) {
-	for _, group := range groups {
+func (m *HashRing) Add(destinations ...*Destination) {
+	for _, destination := range destinations {
 		for i := 0; i < m.replicas; i++ {
-			hash := int(m.hash([]byte(strconv.Itoa(i) + group.Name)))
+			hash := int(m.hash([]byte(strconv.Itoa(i) + destination.Name)))
 			m.keys = append(m.keys, hash)
-			m.hashMap[hash] = group
+			m.hashMap[hash] = destination
 		}
 		sort.Ints(m.keys)
 	}
 }
 
 // Gets the closest item in the hash to the provided key.
-func (m *HashRing) Get(key string) *ChanGroup {
+func (m *HashRing) Get(key string) *Destination {
 	if m.IsEmpty() {
 		return nil
 	}

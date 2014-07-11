@@ -63,7 +63,7 @@ func TestTarget(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
-	hashRing.Add(NewChanGroup("null", PointChannelCapacity))
+	hashRing.Add(NewDestination("null", PointChannelCapacity))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))

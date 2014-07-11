@@ -1,18 +1,18 @@
 package main
 
 type NullPoster struct {
-	chanGroup *ChanGroup
-	name      string
+	destination *Destination
+	name        string
 }
 
-func NewNullPoster(chanGroup *ChanGroup) *NullPoster {
+func NewNullPoster(destination *Destination) *NullPoster {
 	return &NullPoster{
-		chanGroup: chanGroup,
-		name:      "null",
+		destination: destination,
+		name:        "null",
 	}
 }
 
 func (p *NullPoster) Run() {
-	for _ = range p.chanGroup.points {
+	for _ = range p.destination.points {
 	}
 }
