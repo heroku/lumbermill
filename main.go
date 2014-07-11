@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"hash/fnv"
 	"log"
 	"net"
@@ -108,8 +107,6 @@ func main() {
 
 	hashRing.Add(destinations...)
 
-	fmt.Println("HERE")
-
 	go librato.Librato(
 		metrics.DefaultRegistry,
 		20*time.Second,
@@ -119,8 +116,6 @@ func main() {
 		[]float64{0.50, 0.95, 0.99},
 		time.Millisecond,
 	)
-
-	fmt.Println("AND HERE")
 
 	// Every 5 minutes, signal that a connection should be closed
 	// This should allow for a slow balancing of connections.
