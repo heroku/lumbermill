@@ -94,11 +94,12 @@ func main() {
 		go poster.Run()
 	} else {
 		for _, client := range influxClients {
-			destination := NewDestination(client.Host, PointChannelCapacity)
+			name := client.Host
+			destination := NewDestination(name, PointChannelCapacity)
 			destinations = append(destinations, destination)
 
 			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, client.Host, destination)
+				poster := NewPoster(client, name, destination)
 				posters = append(posters, poster)
 				go poster.Run()
 			}
