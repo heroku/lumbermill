@@ -34,3 +34,12 @@ func (g *ChanGroup) Sample(every time.Duration) {
 		g.depthGauge.Update(int64(len(g.points)))
 	}
 }
+
+// Post the point, or increment a counter if channel is full
+func (g *ChanGroup) PostPoint(point Point) {
+	select {
+	case g.points <- point:
+	default:
+		droppedErrorCounter.Inc(1)
+	}
+}

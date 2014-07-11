@@ -87,15 +87,6 @@ func dynoType(what string) string {
 	return s[0]
 }
 
-// Post the point to a given channel, or increment a counter if channel is full
-func postPoint(out chan<- Point, point Point) {
-	select {
-	case out <- point:
-	default:
-		droppedErrorCounter.Inc(1)
-	}
-}
-
 func handleLogFmtParsingError(err error) {
 	logfmtParsingErrorCounter.Inc(1)
 	log.Printf("logfmt unmarshal error: %s\n", err)
@@ -178,7 +169,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						handleLogFmtParsingError(err)
 						continue
 					}
-					postPoint(chanGroup.points, Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
+					chanGroup.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
 
 				// likely a standard router log
 				default:
@@ -190,10 +181,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					postPoint(
-						chanGroup.points,
-						Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}},
-					)
+					chanGroup.PostPoint(Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}})
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -209,8 +197,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 
 					what := string(lp.Header().Procid)
-					postPoint(
-						chanGroup.points,
+					chanGroup.PostPoint(
 						Point{id, EventsDyno, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
 					)
 
@@ -224,8 +211,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						postPoint(
-							chanGroup.points,
+						chanGroup.PostPoint(
 							Point{
 								id,
 								DynoMem,
@@ -254,8 +240,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					if dm.Source != "" {
-						postPoint(
-							chanGroup.points,
+						chanGroup.PostPoint(
 							Point{
 								id,
 								DynoLoad,
