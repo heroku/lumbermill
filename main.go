@@ -18,18 +18,9 @@ import (
 )
 
 const (
-	PointChannelCapacity = 100000
+	PointChannelCapacity = 500000
 	HashRingReplication  = 46 // TODO: Needs to be determined
 	PostersPerHost       = 6
-)
-
-const (
-	Router = iota
-	EventsRouter
-	DynoMem
-	DynoLoad
-	EventsDyno
-	numSeries
 )
 
 var (
@@ -37,16 +28,6 @@ var (
 
 	posters    = make([]*Poster, 0)
 	chanGroups = make([]*ChanGroup, 0)
-
-	seriesNames = []string{"router", "events.router", "dyno.mem", "dyno.load", "events.dyno"}
-
-	seriesColumns = [][]string{
-		[]string{"time", "id", "status", "service"}, // Router
-		[]string{"time", "id", "code"},              // EventsRouter
-		[]string{"time", "id", "source", "memory_cache", "memory_pgpgin", "memory_pgpgout", "memory_rss", "memory_swap", "memory_total", "dynoType"}, // DynoMem
-		[]string{"time", "id", "source", "load_avg_1m", "load_avg_5m", "load_avg_15m", "dynoType"},                                                   // DynoLoad
-		[]string{"time", "id", "what", "type", "code", "message", "dynoType"},                                                                        // DynoEvents
-	}
 
 	hashRing = NewHashRing(HashRingReplication, func(data []byte) uint32 {
 		a := fnv.New32a()
@@ -112,12 +93,11 @@ func main() {
 		go poster.Run()
 	} else {
 		for _, client := range influxClients {
-			name := client.Host
-			group := NewChanGroup(name, PointChannelCapacity)
+			group := NewChanGroup(client.Host, PointChannelCapacity)
 			chanGroups = append(chanGroups, group)
 
 			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, name, group)
+				poster := NewPoster(client, client.Host, group)
 				posters = append(posters, poster)
 				go poster.Run()
 			}
@@ -136,7 +116,7 @@ func main() {
 		time.Millisecond,
 	)
 
-	// Every 5 minutes, signal that the connection should be closed
+	// Every 5 minutes, signal that a connection should be closed
 	// This should allow for a slow balancing of connections.
 	go func() {
 		for {

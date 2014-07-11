@@ -13,28 +13,6 @@ func NewNullPoster(chanGroup *ChanGroup) *NullPoster {
 }
 
 func (p *NullPoster) Run() {
-	for {
-		select {
-		case _, open := <-p.chanGroup.points[Router]:
-			if !open {
-				break
-			}
-		case _, open := <-p.chanGroup.points[EventsRouter]:
-			if !open {
-				break
-			}
-		case _, open := <-p.chanGroup.points[DynoMem]:
-			if !open {
-				break
-			}
-		case _, open := <-p.chanGroup.points[DynoLoad]:
-			if !open {
-				break
-			}
-		case _, open := <-p.chanGroup.points[EventsDyno]:
-			if !open {
-				break
-			}
-		}
+	for _ = range p.chanGroup.points {
 	}
 }

@@ -38,63 +38,48 @@ func NewPoster(clientConfig influx.ClientConfig, name string, chanGroup *ChanGro
 	}
 }
 
+func makeSeries(p Point) *influx.Series {
+	series := &influx.Series{Points: make([][]interface{}, 0)}
+	series.Name = p.SeriesName()
+	series.Columns = seriesColumns[p.Type]
+	return series
+}
+
 func (p *Poster) Run() {
 	timeout := time.NewTicker(time.Second)
 	defer func() { timeout.Stop() }()
 
-	seriesGroup := make([]*influx.Series, numSeries)
-
-	for i := 0; i < numSeries; i++ {
-		series := &influx.Series{Points: make([][]interface{}, 0)}
-		series.Name = seriesNames[i]
-		series.Columns = seriesColumns[i]
-		seriesGroup[i] = series
-	}
+	allSeries := make(map[string]*influx.Series)
 
 	for {
 		select {
-		case point, open := <-p.chanGroup.points[Router]:
+		case point, open := <-p.chanGroup.points:
 			if open {
-				seriesGroup[Router].Points = append(seriesGroup[Router].Points, point)
-			} else {
-				break
-			}
-		case point, open := <-p.chanGroup.points[EventsRouter]:
-			if open {
-				seriesGroup[EventsRouter].Points = append(seriesGroup[EventsRouter].Points, point)
-			} else {
-				break
-			}
-		case point, open := <-p.chanGroup.points[DynoMem]:
-			if open {
-				seriesGroup[DynoMem].Points = append(seriesGroup[DynoMem].Points, point)
-			} else {
-				break
-			}
-		case point, open := <-p.chanGroup.points[DynoLoad]:
-			if open {
-				seriesGroup[DynoLoad].Points = append(seriesGroup[DynoLoad].Points, point)
-			} else {
-				break
-			}
-		case point, open := <-p.chanGroup.points[EventsDyno]:
-			if open {
-				seriesGroup[EventsDyno].Points = append(seriesGroup[EventsDyno].Points, point)
+				seriesName := point.SeriesName()
+				series, found := allSeries[seriesName]
+				if !found {
+					series = makeSeries(point)
+				}
+				series.Points = append(series.Points, point.Points)
+				allSeries[seriesName] = series
 			} else {
 				break
 			}
 		case <-timeout.C:
-			p.deliver(seriesGroup)
+			p.deliver(allSeries)
 		}
 	}
 
-	p.deliver(seriesGroup)
+	p.deliver(allSeries)
 }
 
-func (p *Poster) deliver(seriesGroup []*influx.Series) {
+func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 	pointCount := 0
-	for _, s := range seriesGroup {
+	seriesGroup := make([]*influx.Series, len(allSeries))
+
+	for _, s := range allSeries {
 		pointCount += len(s.Points)
+		seriesGroup = append(seriesGroup, s)
 	}
 
 	if pointCount == 0 {
@@ -114,7 +99,7 @@ func (p *Poster) deliver(seriesGroup []*influx.Series) {
 		deliverySizeHistogram.Update(int64(pointCount))
 	}
 
-	for _, series := range seriesGroup {
-		series.Points = series.Points[0:0]
+	for k, _ := range allSeries {
+		delete(allSeries, k)
 	}
 }
