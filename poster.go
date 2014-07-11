@@ -87,8 +87,6 @@ func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 	}
 
 	start := time.Now()
-	log.Println(seriesGroup)
-
 	err := p.influxClient.WriteSeriesWithTimePrecision(seriesGroup, influx.Microsecond)
 
 	if err != nil {
