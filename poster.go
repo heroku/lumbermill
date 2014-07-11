@@ -66,6 +66,7 @@ func (p *Poster) Run() {
 			}
 		case <-timeout.C:
 			p.deliver(allSeries)
+			allSeries = make(map[string]*influx.Series)
 		}
 	}
 
@@ -96,9 +97,5 @@ func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 		p.pointsSuccessCounter.Inc(1)
 		p.pointsSuccessTime.UpdateSince(start)
 		deliverySizeHistogram.Update(int64(pointCount))
-	}
-
-	for k, _ := range allSeries {
-		delete(allSeries, k)
 	}
 }
