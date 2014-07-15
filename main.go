@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	influx "github.com/influxdb/influxdb-go"
 	metrics "github.com/rcrowley/go-metrics"
 	librato "github.com/rcrowley/go-metrics/librato"
-	influx "github.com/influxdb/influxdb-go"
 )
 
 const (
@@ -53,6 +53,7 @@ func createInfluxDBClient(host string) influx.ClientConfig {
 					return net.DialTimeout(network, address, 5*time.Second)
 				},
 			},
+			Timeout: 10 * time.Second,
 		},
 	}
 }

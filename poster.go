@@ -91,6 +91,8 @@ func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 	err := p.influxClient.WriteSeriesWithTimePrecision(seriesGroup, influx.Microsecond)
 
 	if err != nil {
+		// TODO: Ugh. These could be timeout errors, or an internal error.
+		//       Should probably attempt to figure out which...
 		p.pointsFailureCounter.Inc(1)
 		p.pointsFailureTime.UpdateSince(start)
 		log.Println(err)
