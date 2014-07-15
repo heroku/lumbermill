@@ -12,8 +12,6 @@ import (
 
 	metrics "github.com/rcrowley/go-metrics"
 	librato "github.com/rcrowley/go-metrics/librato"
-
-	"github.com/heroku/slog"
 	influx "github.com/influxdb/influxdb-go"
 )
 
@@ -40,11 +38,6 @@ var (
 	User     = os.Getenv("USER")
 	Password = os.Getenv("PASSWORD")
 )
-
-func LogWithContext(ctx slog.Context) {
-	ctx.Add("app", "lumbermill")
-	log.Println(ctx)
-}
 
 func createInfluxDBClient(host string) influx.ClientConfig {
 	return influx.ClientConfig{
