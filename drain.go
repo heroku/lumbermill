@@ -87,9 +87,9 @@ func dynoType(what string) string {
 	return s[0]
 }
 
-func handleLogFmtParsingError(err error) {
+func handleLogFmtParsingError(msg []byte, err error) {
 	logfmtParsingErrorCounter.Inc(1)
-	log.Printf("logfmt unmarshal error: %s\n", err)
+	log.Printf("logfmt unmarshal error(%q): %q\n", string(msg), err)
 }
 
 // "Parse tree" from hell
@@ -166,7 +166,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					re := routerError{}
 					err := logfmt.Unmarshal(msg, &re)
 					if err != nil {
-						handleLogFmtParsingError(err)
+						handleLogFmtParsingError(msg, err)
 						continue
 					}
 					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
@@ -177,7 +177,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					rm := routerMsg{}
 					err := logfmt.Unmarshal(msg, &rm)
 					if err != nil {
-						handleLogFmtParsingError(err)
+						handleLogFmtParsingError(msg, err)
 						continue
 					}
 
@@ -192,7 +192,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					dynoErrorLinesCounter.Inc(1)
 					de, err := parseBytesToDynoError(msg)
 					if err != nil {
-						handleLogFmtParsingError(err)
+						handleLogFmtParsingError(msg, err)
 						continue
 					}
 
@@ -207,7 +207,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
-						handleLogFmtParsingError(err)
+						handleLogFmtParsingError(msg, err)
 						continue
 					}
 					if dm.Source != "" {
@@ -236,7 +236,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
 					if err != nil {
-						handleLogFmtParsingError(err)
+						handleLogFmtParsingError(msg, err)
 						continue
 					}
 					if dm.Source != "" {
