@@ -6,7 +6,7 @@ before_install:
  - go get github.com/tools/godep
  - export PATH=$HOME/gopath/bin:$PATH
 
-install:
+install: godep go version
 
 script:
  - godep go test -v ./...
