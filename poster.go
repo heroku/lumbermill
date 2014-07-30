@@ -95,7 +95,7 @@ func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 		//       Should probably attempt to figure out which...
 		p.pointsFailureCounter.Inc(1)
 		p.pointsFailureTime.UpdateSince(start)
-		log.Println(err)
+		log.Printf("Error posting points: %s\n", err)
 	} else {
 		p.pointsSuccessCounter.Inc(1)
 		p.pointsSuccessTime.UpdateSince(start)
