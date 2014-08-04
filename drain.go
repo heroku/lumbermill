@@ -171,6 +171,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
 
+				//If the app is blank (not pushed) we don't care
+				case bytes.Contains(msg, keyCodeBlank), bytes.Contains(msg, keyDescBlank):
+					// do nothing
+
 				// likely a standard router log
 				default:
 					routerLinesCounter.Inc(1)
