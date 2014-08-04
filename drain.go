@@ -32,6 +32,7 @@ var (
 	linesCounter               = metrics.NewRegisteredCounter("lumbermill.lines", metrics.DefaultRegistry)
 	routerErrorLinesCounter    = metrics.NewRegisteredCounter("lumbermill.lines.router.error", metrics.DefaultRegistry)
 	routerLinesCounter         = metrics.NewRegisteredCounter("lumbermill.lines.router", metrics.DefaultRegistry)
+	routerBlankLinesCounter    = metrics.NewRegisteredCounter("lumbermill.lines.router.blank", metrics.DefaultRegistry)
 	dynoErrorLinesCounter      = metrics.NewRegisteredCounter("lumbermill.lines.dyno.error", metrics.DefaultRegistry)
 	dynoMemLinesCounter        = metrics.NewRegisteredCounter("lumbermill.lines.dyno.mem", metrics.DefaultRegistry)
 	dynoLoadLinesCounter       = metrics.NewRegisteredCounter("lumbermill.lines.dyno.load", metrics.DefaultRegistry)
@@ -171,9 +172,10 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
 
-				//If the app is blank (not pushed) we don't care
+				// If the app is blank (not pushed) we don't care
+				// do nothing atm, increment a counter
 				case bytes.Contains(msg, keyCodeBlank), bytes.Contains(msg, keyDescBlank):
-					// do nothing
+					routerBlankLinesCounter.Inc(1)
 
 				// likely a standard router log
 				default:
