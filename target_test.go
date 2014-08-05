@@ -8,13 +8,15 @@ import (
 )
 
 func TestTargetWithoutAuth(t *testing.T) {
+	server :=NewHttpServer()
+
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusForbidden {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -25,6 +27,7 @@ func TestTargetWithoutId(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
+	server :=NewHttpServer()
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -33,7 +36,7 @@ func TestTargetWithoutId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -44,6 +47,7 @@ func TestTargetWithoutRing(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
+	server := NewHttpServer()
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -52,7 +56,7 @@ func TestTargetWithoutRing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -63,6 +67,7 @@ func TestTarget(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
+	server := NewHttpServer()
 	hashRing.Add(NewDestination("null", PointChannelCapacity))
 
 	recorder := httptest.NewRecorder()
@@ -72,7 +77,7 @@ func TestTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
