@@ -7,7 +7,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	influx "github.com/influxdb/influxdb-go"
@@ -15,9 +17,11 @@ import (
 	librato "github.com/rcrowley/go-metrics/librato"
 )
 
+type ShutdownChan chan struct{}
+
 const (
 	PointChannelCapacity = 500000
-	HashRingReplication  = 46 // TODO: Needs to be determined
+	HashRingReplication  = 46
 	PostersPerHost       = 6
 )
 
@@ -69,15 +73,19 @@ func createClients(hostlist string) []influx.ClientConfig {
 	return clients
 }
 
-// Health Checks, so just say 200 - OK
-// TODO: Actual healthcheck
-func serveHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+
+func awaitShutdownSignals(chs []ShutdownChan) {
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-sigCh
+	log.Printf("Got signal: %q", sig)
+	for _, ch := range chs {
+		ch <- struct{}{}
+	}
 }
 
-func main() {
-	port := os.Getenv("PORT")
 
+func main() {
 	influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"))
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
@@ -111,17 +119,17 @@ func main() {
 		time.Millisecond,
 	)
 
-	// Every 5 minutes, signal that a connection should be closed
-	// This should allow for a slow balancing of connections.
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			connectionCloser <- struct{}{}
-		}
-	}()
+	shutdownChan := make(ShutdownChan)
+	server := NewHttpServer()
 
-	http.HandleFunc("/drain", serveDrain)
-	http.HandleFunc("/health", serveHealth)
-	http.HandleFunc("/target/", serveTarget)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	go awaitShutdownSignals([]ShutdownChan{server.ShutdownChan, shutdownChan})
+	// Every 5 minutes, Kill a connection.
+	go server.RecycleConnections(5 * time.Minute)
+	go server.Run(os.Getenv("PORT"))
+
+	log.Printf("Starting up")
+	<- shutdownChan
+	log.Printf("waiting for inflight requests to finish.")
+	server.InFlightWg.Wait()
+	log.Printf("Shutdown complete.")
 }

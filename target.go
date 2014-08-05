@@ -7,8 +7,8 @@ import (
 )
 
 // GET /target/<opaque id>
-func serveTarget(w http.ResponseWriter, r *http.Request) {
-	if err := checkAuth(r); err != nil {
+func (s *HttpServer) serveTarget(w http.ResponseWriter, r *http.Request) {
+	if err := s.checkAuth(r); err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		authFailureCounter.Inc(1)
 		return

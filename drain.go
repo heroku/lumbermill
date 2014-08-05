@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
-	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -41,44 +39,6 @@ var (
 	batchSizeHistogram         = metrics.NewRegisteredHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 )
 
-func checkAuth(r *http.Request) error {
-	header := r.Header.Get("Authorization")
-	if header == "" {
-		return errors.New("Authorization required")
-	}
-	headerParts := strings.SplitN(header, " ", 2)
-	if len(headerParts) != 2 {
-		return errors.New("Authorization header is malformed")
-	}
-
-	method := headerParts[0]
-	if method != "Basic" {
-		return errors.New("Only Basic Authorization is accepted")
-	}
-
-	encodedUserPass := headerParts[1]
-	decodedUserPass, err := base64.StdEncoding.DecodeString(encodedUserPass)
-	if err != nil {
-		return errors.New("Authorization header is malformed")
-	}
-
-	userPassParts := bytes.SplitN(decodedUserPass, []byte{':'}, 2)
-	if len(userPassParts) != 2 {
-		return errors.New("Authorization header is malformed")
-	}
-
-	user := userPassParts[0]
-	pass := userPassParts[1]
-
-	if string(user) != User {
-		return errors.New("Unknown user")
-	}
-	if string(pass) != Password {
-		return errors.New("Incorrect token")
-	}
-
-	return nil
-}
 
 // Dyno's are generally reported as "<type>.<#>"
 // Extract the <type> and return it
@@ -93,7 +53,14 @@ func handleLogFmtParsingError(msg []byte, err error) {
 }
 
 // "Parse tree" from hell
-func serveDrain(w http.ResponseWriter, r *http.Request) {
+func (s *HttpServer) serveDrain(w http.ResponseWriter, r *http.Request) {
+
+	s.InFlightWg.Add(1)
+	defer s.InFlightWg.Done()
+
+	if s.isShuttingDown {
+		http.Error(w, "Shutting Down", 503)
+	}
 
 	w.Header().Set("Content-Length", "0")
 
@@ -106,7 +73,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 	id := r.Header.Get("Logplex-Drain-Token")
 
 	if id == "" {
-		if err := checkAuth(r); err != nil {
+		if err := s.checkAuth(r); err != nil {
 			w.WriteHeader(http.StatusForbidden)
 			authFailureCounter.Inc(1)
 			return
@@ -291,7 +258,7 @@ func serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	// If we are told to close the connection after the reply, do so.
 	select {
-	case <-connectionCloser:
+	case <-s.ConnectionCloser:
 		w.Header().Set("Connection", "close")
 	default:
 		//Nothing
