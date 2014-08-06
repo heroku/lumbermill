@@ -123,9 +123,7 @@ func main() {
 	server := NewHttpServer()
 
 	go awaitShutdownSignals([]ShutdownChan{server.ShutdownChan, shutdownChan})
-	// Every 5 minutes, Kill a connection.
-	go server.RecycleConnections(5 * time.Minute)
-	go server.Run(os.Getenv("PORT"))
+	go server.Run(os.Getenv("PORT"), 5 * time.Minute)
 
 	log.Printf("Starting up")
 	<- shutdownChan

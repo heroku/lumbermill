@@ -32,12 +32,14 @@ func (s *HttpServer) RecycleConnections(after time.Duration) {
 	}
 }
 
-func (s *HttpServer) Run(port string) {
+func (s *HttpServer) Run(port string, connRecycle time.Duration) {
 	go s.awaitShutdown()
 
 	http.HandleFunc("/drain", s.serveDrain)
 	http.HandleFunc("/health", s.serveHealth)
 	http.HandleFunc("/target/", s.serveTarget)
+
+	go s.RecycleConnections(connRecycle)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalln("Unable to start HTTP server: ", err)
