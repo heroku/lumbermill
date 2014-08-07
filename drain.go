@@ -55,8 +55,8 @@ func handleLogFmtParsingError(msg []byte, err error) {
 // "Parse tree" from hell
 func (s *HttpServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
-	s.InFlightWg.Add(1)
-	defer s.InFlightWg.Done()
+	s.Add(1)
+	defer s.Done()
 
 	if s.isShuttingDown {
 		http.Error(w, "Shutting Down", 503)

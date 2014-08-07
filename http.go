@@ -12,17 +12,21 @@ import (
 )
 
 type HttpServer struct {
-	InFlightWg     sync.WaitGroup
-	ShutdownChan   ShutdownChan
+	sync.WaitGroup
 	ConnectionCloser chan struct{}
+	shutdownChan   ShutdownChan
 	isShuttingDown bool
 }
 
 func NewHttpServer() *HttpServer {
 	return &HttpServer{
-	  ShutdownChan: make(chan struct{}),
 	  ConnectionCloser: make(chan struct{}),
+	  shutdownChan: make(chan struct{}),
 	}
+}
+
+func (s *HttpServer) Signal() {
+	s.shutdownChan <- struct{}{}
 }
 
 func (s *HttpServer) RecycleConnections(after time.Duration) {
@@ -57,7 +61,7 @@ func (s *HttpServer) serveHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HttpServer) awaitShutdown() {
-	<- s.ShutdownChan
+	<- s.shutdownChan
 	log.Printf("Shutting down.")
 	s.isShuttingDown = true
 }

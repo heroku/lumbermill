@@ -43,6 +43,10 @@ var (
 	Password = os.Getenv("PASSWORD")
 )
 
+func (s ShutdownChan) Signal() {
+	s <- struct{}{}
+}
+
 func createInfluxDBClient(host string) influx.ClientConfig {
 	return influx.ClientConfig{
 		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
@@ -74,13 +78,13 @@ func createClients(hostlist string) []influx.ClientConfig {
 }
 
 
-func awaitShutdownSignals(chs []ShutdownChan) {
+func awaitShutdownSignals(ss ... Signaler) {
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-sigCh
 	log.Printf("Got signal: %q", sig)
-	for _, ch := range chs {
-		ch <- struct{}{}
+	for _, s := range ss {
+		s.Signal()
 	}
 }
 
@@ -122,12 +126,12 @@ func main() {
 	shutdownChan := make(ShutdownChan)
 	server := NewHttpServer()
 
-	go awaitShutdownSignals([]ShutdownChan{server.ShutdownChan, shutdownChan})
 	go server.Run(os.Getenv("PORT"), 5 * time.Minute)
+	go awaitShutdownSignals(server, shutdownChan)
 
 	log.Printf("Starting up")
 	<- shutdownChan
 	log.Printf("waiting for inflight requests to finish.")
-	server.InFlightWg.Wait()
+	server.Wait()
 	log.Printf("Shutdown complete.")
 }
