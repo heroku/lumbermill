@@ -1,0 +1,3 @@
+cmd/lpxgen/lpxgen
+*.a
+*.o

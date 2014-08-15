@@ -8,7 +8,7 @@ import (
 )
 
 func TestTargetWithoutAuth(t *testing.T) {
-	server :=NewHttpServer()
+	server := NewLumbermillServer(&http.Server{}, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -27,7 +27,7 @@ func TestTargetWithoutId(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
-	server :=NewHttpServer()
+	server := NewLumbermillServer(&http.Server{}, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -47,7 +47,8 @@ func TestTargetWithoutRing(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
-	server := NewHttpServer()
+
+	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -67,8 +68,9 @@ func TestTarget(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
-	server := NewHttpServer()
-	hashRing.Add(NewDestination("null", PointChannelCapacity))
+
+	hashRing, _ := createMessageRoutes("null")
+	server := NewLumbermillServer(&http.Server{}, hashRing)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))

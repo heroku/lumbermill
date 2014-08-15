@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+  "sync"
 	"time"
 
 	influx "github.com/influxdb/influxdb-go"
@@ -18,9 +19,10 @@ type Poster struct {
 	pointsSuccessTime    metrics.Timer
 	pointsFailureCounter metrics.Counter
 	pointsFailureTime    metrics.Timer
+  waitGroup            *sync.WaitGroup
 }
 
-func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination) *Poster {
+func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
 	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {
@@ -35,6 +37,7 @@ func NewPoster(clientConfig influx.ClientConfig, name string, destination *Desti
 		pointsSuccessTime:    metrics.NewRegisteredTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
 		pointsFailureCounter: metrics.NewRegisteredCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
 		pointsFailureTime:    metrics.NewRegisteredTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
+    waitGroup: waitGroup,
 	}
 }
 
@@ -46,8 +49,10 @@ func makeSeries(p Point) *influx.Series {
 }
 
 func (p *Poster) Run() {
+  p.waitGroup.Add(1)
 	timeout := time.NewTicker(time.Second)
 	defer func() { timeout.Stop() }()
+  defer p.waitGroup.Done()
 
 	allSeries := make(map[string]*influx.Series)
 
@@ -86,6 +91,8 @@ func (p *Poster) deliver(allSeries map[string]*influx.Series) {
 	if pointCount == 0 {
 		return
 	}
+
+	log.Printf("DELIVERING!!!!!!!!!")
 
 	start := time.Now()
 	err := p.influxClient.WriteSeriesWithTimePrecision(seriesGroup, influx.Microsecond)

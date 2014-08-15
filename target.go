@@ -7,7 +7,7 @@ import (
 )
 
 // GET /target/<opaque id>
-func (s *HttpServer) serveTarget(w http.ResponseWriter, r *http.Request) {
+func (s *LumbermillServer) serveTarget(w http.ResponseWriter, r *http.Request) {
 	if err := s.checkAuth(r); err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		authFailureCounter.Inc(1)
@@ -23,7 +23,7 @@ func (s *HttpServer) serveTarget(w http.ResponseWriter, r *http.Request) {
 
 	id := parts[2]
 
-	destination := hashRing.Get(id)
+	destination := s.hashRing.Get(id)
 
 	if destination == nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -53,14 +53,10 @@ func handleLogFmtParsingError(msg []byte, err error) {
 }
 
 // "Parse tree" from hell
-func (s *HttpServer) serveDrain(w http.ResponseWriter, r *http.Request) {
+func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	s.Add(1)
 	defer s.Done()
-
-	if s.isShuttingDown {
-		http.Error(w, "Shutting Down", 503)
-	}
 
 	w.Header().Set("Content-Length", "0")
 
@@ -104,7 +100,7 @@ func (s *HttpServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		destination := hashRing.Get(id)
+		destination := s.hashRing.Get(id)
 
 		msg := lp.Bytes()
 		switch {
@@ -255,14 +251,6 @@ func (s *HttpServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 	batchSizeHistogram.Update(int64(linesCounterInc))
 
 	parseTimer.UpdateSince(parseStart)
-
-	// If we are told to close the connection after the reply, do so.
-	select {
-	case <-s.ConnectionCloser:
-		w.Header().Set("Connection", "close")
-	default:
-		//Nothing
-	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -11,48 +11,70 @@ import (
 	"time"
 )
 
-type HttpServer struct {
+type LumbermillServer struct {
 	sync.WaitGroup
-	ConnectionCloser chan struct{}
-	shutdownChan   ShutdownChan
-	isShuttingDown bool
+	connectionCloser chan struct{}
+	hashRing         *HashRing
+	http             *http.Server
+	shutdownChan     ShutdownChan
+	isShuttingDown   bool
 }
 
-func NewHttpServer() *HttpServer {
-	return &HttpServer{
-	  ConnectionCloser: make(chan struct{}),
-	  shutdownChan: make(chan struct{}),
+func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillServer {
+
+	s := &LumbermillServer{
+		connectionCloser: make(chan struct{}),
+		shutdownChan:     make(chan struct{}),
+		http:             server,
+		hashRing:         hashRing,
 	}
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/drain", func(w http.ResponseWriter, r *http.Request) {
+		s.serveDrain(w, r)
+		s.recycleConnection(w)
+	})
+
+	mux.HandleFunc("/health", s.serveHealth)
+	mux.HandleFunc("/target/", s.serveTarget)
+
+	s.http.Handler = mux
+
+	return s
 }
 
-func (s *HttpServer) Signal() {
+func (s *LumbermillServer) Signal() {
 	s.shutdownChan <- struct{}{}
 }
 
-func (s *HttpServer) RecycleConnections(after time.Duration) {
+func (s *LumbermillServer) scheduleConnectionRecycling(after time.Duration) {
 	for !s.isShuttingDown {
 		time.Sleep(after)
-		s.ConnectionCloser <- struct{}{}
+		s.connectionCloser <- struct{}{}
 	}
 }
 
-func (s *HttpServer) Run(port string, connRecycle time.Duration) {
+func (s *LumbermillServer) recycleConnection(w http.ResponseWriter) {
+	select {
+	case <-s.connectionCloser:
+		w.Header().Set("Connection", "close")
+	default:
+	}
+}
+
+func (s *LumbermillServer) Run(connRecycle time.Duration) {
 	go s.awaitShutdown()
+	go s.scheduleConnectionRecycling(connRecycle)
 
-	http.HandleFunc("/drain", s.serveDrain)
-	http.HandleFunc("/health", s.serveHealth)
-	http.HandleFunc("/target/", s.serveTarget)
-
-	go s.RecycleConnections(connRecycle)
-
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := s.http.ListenAndServe(); err != nil {
 		log.Fatalln("Unable to start HTTP server: ", err)
 	}
 }
 
 // Health Checks, so just say 200 - OK
 // TODO: Actual healthcheck
-func (s *HttpServer) serveHealth(w http.ResponseWriter, r *http.Request) {
+func (s *LumbermillServer) serveHealth(w http.ResponseWriter, r *http.Request) {
 	if s.isShuttingDown {
 		http.Error(w, "Shutting Down", 503)
 	}
@@ -60,13 +82,13 @@ func (s *HttpServer) serveHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HttpServer) awaitShutdown() {
-	<- s.shutdownChan
+func (s *LumbermillServer) awaitShutdown() {
+	<-s.shutdownChan
 	log.Printf("Shutting down.")
 	s.isShuttingDown = true
 }
 
-func (s *HttpServer) checkAuth(r *http.Request) error {
+func (s *LumbermillServer) checkAuth(r *http.Request) error {
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return errors.New("Authorization required")

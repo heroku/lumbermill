@@ -1,0 +1,10 @@
+{
+	"ImportPath": "github.com/apg/lpxgen",
+	"GoVersion": "go1.3",
+	"Deps": [
+		{
+			"ImportPath": "github.com/bmizerany/lpx",
+			"Rev": "af85cf24c1567bcb5a2e4c21597cc049eab31f55"
+		}
+	]
+}

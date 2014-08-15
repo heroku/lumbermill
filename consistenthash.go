@@ -23,7 +23,7 @@ Changelog:
 package main
 
 import (
-	"hash/crc32"
+	"hash/fnv"
 	"sort"
 	"strconv"
 )
@@ -44,8 +44,14 @@ func NewHashRing(replicas int, fn HashFn) *HashRing {
 		hashMap:  make(map[int]*Destination),
 	}
 	if m.hash == nil {
-		m.hash = crc32.ChecksumIEEE
+		// Default to fnv1a since it provides a better distribution
+		m.hash = func(data []byte) uint32 {
+			a := fnv.New32a()
+			a.Write(data)
+			return a.Sum32()
+		}
 	}
+
 	return m
 }
 
