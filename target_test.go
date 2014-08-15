@@ -69,7 +69,7 @@ func TestTarget(t *testing.T) {
 	User = "foo"
 	Password = "foo"
 
-	hashRing, _ := createMessageRoutes("null")
+	hashRing, _, _ := createMessageRoutes("null", true)
 	server := NewLumbermillServer(&http.Server{}, hashRing)
 
 	recorder := httptest.NewRecorder()

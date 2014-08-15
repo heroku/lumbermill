@@ -42,3 +42,7 @@ func (d *Destination) PostPoint(point Point) {
 		droppedErrorCounter.Inc(1)
 	}
 }
+
+func (d *Destination) Signal() {
+	close(d.points)
+}

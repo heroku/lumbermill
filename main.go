@@ -37,7 +37,7 @@ func (s ShutdownChan) Signal() {
 	s <- struct{}{}
 }
 
-func createInfluxDBClient(host string) influx.ClientConfig {
+func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
 	return influx.ClientConfig{
 		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
 		Username: os.Getenv("INFLUXDB_USER"), //"test",
@@ -45,7 +45,7 @@ func createInfluxDBClient(host string) influx.ClientConfig {
 		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
 		IsSecure: true,
 		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
 				ResponseHeaderTimeout: 5 * time.Second,
 				Dial: func(network, address string) (net.Conn, error) {
 					return net.DialTimeout(network, address, 5*time.Second)
@@ -57,27 +57,29 @@ func createInfluxDBClient(host string) influx.ClientConfig {
 }
 
 // Creates clients which deliver to InfluxDB
-func createClients(hostlist string) []influx.ClientConfig {
+func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
 	clients := make([]influx.ClientConfig, 0)
 	for _, host := range strings.Split(hostlist, ",") {
 		host = strings.Trim(host, "\t ")
 		if host != "" {
-			clients = append(clients, createInfluxDBClient(host))
+			clients = append(clients, createInfluxDBClient(host, skipVerify))
 		}
 	}
 	return clients
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string) (*HashRing, *sync.WaitGroup) {
+func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destination, *sync.WaitGroup) {
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
+	destinations := make([]*Destination, 0)
 
-	influxClients := createClients(hostlist)
+	influxClients := createClients(hostlist, skipVerify)
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
 		destination := NewDestination("null", PointChannelCapacity)
 		hashRing.Add(destination)
+		destinations = append(destinations, destination)
 		poster := NewNullPoster(destination)
 		go poster.Run()
 	} else {
@@ -85,7 +87,7 @@ func createMessageRoutes(hostlist string) (*HashRing, *sync.WaitGroup) {
 			name := client.Host
 			destination := NewDestination(name, PointChannelCapacity)
 			hashRing.Add(destination)
-
+			destinations = append(destinations, destination)
 			for p := 0; p < PostersPerHost; p++ {
 				poster := NewPoster(client, name, destination, posterGroup)
 				go poster.Run()
@@ -93,7 +95,7 @@ func createMessageRoutes(hostlist string) (*HashRing, *sync.WaitGroup) {
 		}
 	}
 
-	return hashRing, posterGroup
+	return hashRing, destinations, posterGroup
 }
 
 func awaitSignals(ss ...Signaler) {
@@ -115,7 +117,7 @@ func awaitShutdown(shutdownChan ShutdownChan, server *LumbermillServer, posterGr
 }
 
 func main() {
-	hashRing, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"))
+	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
 
 	if os.Getenv("LIBRATO_TOKEN") != "" {
 		go librato.Librato(
@@ -136,6 +138,14 @@ func main() {
 
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)
-	go awaitSignals(server, shutdownChan)
+
+	signalers := make([]Signaler, 0)
+	signalers = append(signalers, server)
+	signalers = append(signalers, shutdownChan)
+	for _, sig := range destinations {
+		signalers = append(signalers, sig)
+	}
+
+	go awaitSignals(signalers...)
 	awaitShutdown(shutdownChan, server, posterGroup)
 }
