@@ -1,0 +1,32 @@
+{
+    "name": "Lumbermill",
+    "description": "Go app which takes Heroku Log drains and parses the router and dyno information, and then pushes metrics to influxdb",
+    "website": "https://github.com/heroku/lumbermill",
+    "repository": "https://github.com/heroku/lumbermill",
+    "keywords": [
+        "logs",
+        "drain",
+        "InfluxDB",
+        "golang"
+    ],
+    "success_url": "https://github.com/heroku/lumbermill#add-the-drain-to-an-app",
+    "env": {
+        "BUILDPACK_URL": "https://github.com/kr/heroku-buildpack-go.git",
+        "INFLUXDB_HOSTS": {
+            "description": "InfluxDB host:port"
+        },
+        "INFLUXDB_USER": {
+            "description": "InfluxDB username"
+        },
+        "INFLUXDB_PWD": {
+            "description": "InfluxDB password"
+        },
+        "INFLUXDB_NAME": {
+            "description": "InfluxDB database name"
+        },
+        "INFLUXDB_SKIP_VERIFY": {
+            "description": "Disable InfluxDB TLS verification",
+            "value": "true"
+        }
+    }
+}
