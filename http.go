@@ -61,6 +61,9 @@ func (s *LumbermillServer) recycleConnection(w http.ResponseWriter) {
 	case <-s.connectionCloser:
 		w.Header().Set("Connection", "close")
 	default:
+		if s.isShuttingDown {
+			w.Header().Set("Connection", "close")
+		}
 	}
 }
 
