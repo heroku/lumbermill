@@ -44,8 +44,9 @@ func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillSer
 	return s
 }
 
-func (s *LumbermillServer) Signal() {
+func (s *LumbermillServer) Close() error {
 	s.shutdownChan <- struct{}{}
+	return nil
 }
 
 func (s *LumbermillServer) scheduleConnectionRecycling(after time.Duration) {

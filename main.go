@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -33,8 +34,9 @@ var (
 	Password = os.Getenv("PASSWORD")
 )
 
-func (s ShutdownChan) Signal() {
+func (s ShutdownChan) Close() error {
 	s <- struct{}{}
+	return nil
 }
 
 func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
@@ -98,13 +100,13 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 	return hashRing, destinations, posterGroup
 }
 
-func awaitSignals(ss ...Signaler) {
+func awaitSignals(ss ...io.Closer) {
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-sigCh
 	log.Printf("Got signal: %q", sig)
 	for _, s := range ss {
-		s.Signal()
+		s.Close()
 	}
 }
 
@@ -139,13 +141,13 @@ func main() {
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)
 
-	signalers := make([]Signaler, 0)
-	signalers = append(signalers, server)
-	signalers = append(signalers, shutdownChan)
-	for _, sig := range destinations {
-		signalers = append(signalers, sig)
+	closers := make([]io.Closer, 0)
+	closers = append(closers, server)
+	closers = append(closers, shutdownChan)
+	for _, cls := range destinations {
+		closers = append(closers, cls)
 	}
 
-	go awaitSignals(signalers...)
+	go awaitSignals(closers...)
 	awaitShutdown(shutdownChan, server, posterGroup)
 }

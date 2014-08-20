@@ -132,11 +132,11 @@ func TestLumbermillDrain(t *testing.T) {
 			}
 		}
 
-		// Shutdown by calling Signal() on both shutdownChan and lumbermill
-		shutdownChan.Signal()
-		lumbermill.Signal()
+		// Shutdown by calling Close() on both shutdownChan and lumbermill
+		shutdownChan.Close()
+		lumbermill.Close()
 		for _, d := range destinations {
-			d.Signal()
+			d.Close()
 		}
 	}()
 

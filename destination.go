@@ -43,6 +43,7 @@ func (d *Destination) PostPoint(point Point) {
 	}
 }
 
-func (d *Destination) Signal() {
+func (d *Destination) Close() error {
 	close(d.points)
+	return nil
 }
