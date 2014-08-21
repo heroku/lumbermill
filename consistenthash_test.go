@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"hash/crc32"
 	"strconv"
 	"testing"
 )
@@ -71,8 +72,8 @@ func TestHashing(t *testing.T) {
 }
 
 func TestConsistency(t *testing.T) {
-	hash1 := NewHashRing(1, nil)
-	hash2 := NewHashRing(1, nil)
+	hash1 := NewHashRing(1, crc32.ChecksumIEEE)
+	hash2 := NewHashRing(1, crc32.ChecksumIEEE)
 
 	ben := NewDestination("Ben", 1)
 	becky := NewDestination("Becky", 1)
@@ -95,5 +96,4 @@ func TestConsistency(t *testing.T) {
 		hash1.Get("Bonny") != hash2.Get("Bonny") {
 		t.Errorf("Direct matches should always return the same entry")
 	}
-
 }

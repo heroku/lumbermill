@@ -42,3 +42,8 @@ func (d *Destination) PostPoint(point Point) {
 		droppedErrorCounter.Inc(1)
 	}
 }
+
+func (d *Destination) Close() error {
+	close(d.points)
+	return nil
+}

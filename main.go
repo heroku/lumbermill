@@ -2,12 +2,15 @@ package main
 
 import (
 	"crypto/tls"
-	"hash/fnv"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	influx "github.com/influxdb/influxdb-go"
@@ -15,31 +18,28 @@ import (
 	librato "github.com/rcrowley/go-metrics/librato"
 )
 
+type ShutdownChan chan struct{}
+
 const (
 	PointChannelCapacity = 500000
-	HashRingReplication  = 46 // TODO: Needs to be determined
+	HashRingReplication  = 46
 	PostersPerHost       = 6
 )
 
 var (
 	connectionCloser = make(chan struct{})
-
-	posters      = make([]*Poster, 0)
-	destinations = make([]*Destination, 0)
-
-	hashRing = NewHashRing(HashRingReplication, func(data []byte) uint32 {
-		a := fnv.New32a()
-		a.Write(data)
-		return a.Sum32()
-	})
-
-	Debug = os.Getenv("DEBUG") == "true"
+	Debug            = os.Getenv("DEBUG") == "true"
 
 	User     = os.Getenv("USER")
 	Password = os.Getenv("PASSWORD")
 )
 
-func createInfluxDBClient(host string) influx.ClientConfig {
+func (s ShutdownChan) Close() error {
+	s <- struct{}{}
+	return nil
+}
+
+func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
 	return influx.ClientConfig{
 		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
 		Username: os.Getenv("INFLUXDB_USER"), //"test",
@@ -47,7 +47,7 @@ func createInfluxDBClient(host string) influx.ClientConfig {
 		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
 		IsSecure: true,
 		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
 				ResponseHeaderTimeout: 5 * time.Second,
 				Dial: func(network, address string) (net.Conn, error) {
 					return net.DialTimeout(network, address, 5*time.Second)
@@ -58,30 +58,29 @@ func createInfluxDBClient(host string) influx.ClientConfig {
 	}
 }
 
-func createClients(hostlist string) []influx.ClientConfig {
+// Creates clients which deliver to InfluxDB
+func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
 	clients := make([]influx.ClientConfig, 0)
 	for _, host := range strings.Split(hostlist, ",") {
 		host = strings.Trim(host, "\t ")
 		if host != "" {
-			clients = append(clients, createInfluxDBClient(host))
+			clients = append(clients, createInfluxDBClient(host, skipVerify))
 		}
 	}
 	return clients
 }
 
-// Health Checks, so just say 200 - OK
-// TODO: Actual healthcheck
-func serveHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
+// Creates destinations and attaches them to posters, which deliver to InfluxDB
+func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destination, *sync.WaitGroup) {
+	posterGroup := new(sync.WaitGroup)
+	hashRing := NewHashRing(HashRingReplication, nil)
+	destinations := make([]*Destination, 0)
 
-func main() {
-	port := os.Getenv("PORT")
-
-	influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"))
+	influxClients := createClients(hostlist, skipVerify)
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
 		destination := NewDestination("null", PointChannelCapacity)
+		hashRing.Add(destination)
 		destinations = append(destinations, destination)
 		poster := NewNullPoster(destination)
 		go poster.Run()
@@ -89,39 +88,66 @@ func main() {
 		for _, client := range influxClients {
 			name := client.Host
 			destination := NewDestination(name, PointChannelCapacity)
+			hashRing.Add(destination)
 			destinations = append(destinations, destination)
-
 			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, name, destination)
-				posters = append(posters, poster)
+				poster := NewPoster(client, name, destination, posterGroup)
 				go poster.Run()
 			}
 		}
 	}
 
-	hashRing.Add(destinations...)
+	return hashRing, destinations, posterGroup
+}
 
-	go librato.Librato(
-		metrics.DefaultRegistry,
-		20*time.Second,
-		os.Getenv("LIBRATO_OWNER"),
-		os.Getenv("LIBRATO_TOKEN"),
-		os.Getenv("LIBRATO_SOURCE"),
-		[]float64{0.50, 0.95, 0.99},
-		time.Millisecond,
-	)
+func awaitSignals(ss ...io.Closer) {
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-sigCh
+	log.Printf("Got signal: %q", sig)
+	for _, s := range ss {
+		s.Close()
+	}
+}
 
-	// Every 5 minutes, signal that a connection should be closed
-	// This should allow for a slow balancing of connections.
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			connectionCloser <- struct{}{}
-		}
-	}()
+func awaitShutdown(shutdownChan ShutdownChan, server *LumbermillServer, posterGroup *sync.WaitGroup) {
+	<-shutdownChan
+	log.Printf("waiting for inflight requests to finish.")
+	server.Wait()
+	posterGroup.Wait()
+	log.Printf("Shutdown complete.")
+}
 
-	http.HandleFunc("/drain", serveDrain)
-	http.HandleFunc("/health", serveHealth)
-	http.HandleFunc("/target/", serveTarget)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+func main() {
+	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+
+	if os.Getenv("LIBRATO_TOKEN") != "" {
+		go librato.Librato(
+			metrics.DefaultRegistry,
+			20*time.Second,
+			os.Getenv("LIBRATO_OWNER"),
+			os.Getenv("LIBRATO_TOKEN"),
+			os.Getenv("LIBRATO_SOURCE"),
+			[]float64{0.50, 0.95, 0.99},
+			time.Millisecond,
+			)
+	} else if os.Getenv("DEBUG") == "true" {
+		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
+	}
+
+	shutdownChan := make(ShutdownChan)
+	server := NewLumbermillServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, hashRing)
+
+	log.Printf("Starting up")
+	go server.Run(5 * time.Minute)
+
+	closers := make([]io.Closer, 0)
+	closers = append(closers, server)
+	closers = append(closers, shutdownChan)
+	for _, cls := range destinations {
+		closers = append(closers, cls)
+	}
+
+	go awaitSignals(closers...)
+	awaitShutdown(shutdownChan, server, posterGroup)
 }

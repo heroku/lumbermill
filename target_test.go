@@ -8,13 +8,15 @@ import (
 )
 
 func TestTargetWithoutAuth(t *testing.T) {
+	server := NewLumbermillServer(&http.Server{}, nil)
+
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusForbidden {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -25,6 +27,7 @@ func TestTargetWithoutId(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
+	server := NewLumbermillServer(&http.Server{}, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -33,7 +36,7 @@ func TestTargetWithoutId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -45,6 +48,8 @@ func TestTargetWithoutRing(t *testing.T) {
 	User = "foo"
 	Password = "foo"
 
+	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
+
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
 	req.SetBasicAuth("foo", "foo")
@@ -52,7 +57,7 @@ func TestTargetWithoutRing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -63,7 +68,9 @@ func TestTarget(t *testing.T) {
 	//Setup
 	User = "foo"
 	Password = "foo"
-	hashRing.Add(NewDestination("null", PointChannelCapacity))
+
+	hashRing, _, _ := createMessageRoutes("null", true)
+	server := NewLumbermillServer(&http.Server{}, hashRing)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -72,7 +79,7 @@ func TestTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serveTarget(recorder, req)
+	server.serveTarget(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatal("Wrong Response Code: ", recorder.Code)

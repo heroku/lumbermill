@@ -3,6 +3,10 @@
 	"GoVersion": "go1.3",
 	"Deps": [
 		{
+			"ImportPath": "github.com/apg/lpxgen",
+			"Rev": "1084a7b6a16b40517826855f9bd77240d057fde2"
+		},
+		{
 			"ImportPath": "github.com/bmizerany/lpx",
 			"Rev": "af85cf24c1567bcb5a2e4c21597cc049eab31f55"
 		},

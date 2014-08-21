@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+  "sync"
 	"time"
 
 	influx "github.com/influxdb/influxdb-go"
@@ -18,9 +19,10 @@ type Poster struct {
 	pointsSuccessTime    metrics.Timer
 	pointsFailureCounter metrics.Counter
 	pointsFailureTime    metrics.Timer
+  waitGroup            *sync.WaitGroup
 }
 
-func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination) *Poster {
+func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
 	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {
@@ -35,6 +37,7 @@ func NewPoster(clientConfig influx.ClientConfig, name string, destination *Desti
 		pointsSuccessTime:    metrics.NewRegisteredTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
 		pointsFailureCounter: metrics.NewRegisteredCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
 		pointsFailureTime:    metrics.NewRegisteredTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
+    waitGroup: waitGroup,
 	}
 }
 
@@ -46,32 +49,40 @@ func makeSeries(p Point) *influx.Series {
 }
 
 func (p *Poster) Run() {
+	var last bool
+	var delivery map[string]*influx.Series
+
+  p.waitGroup.Add(1)
 	timeout := time.NewTicker(time.Second)
 	defer func() { timeout.Stop() }()
+  defer p.waitGroup.Done()
 
-	allSeries := make(map[string]*influx.Series)
+	for !last {
+		delivery, last = p.nextDelivery(timeout)
+		p.deliver(delivery)
+	}
+}
 
+func (p *Poster) nextDelivery(timeout *time.Ticker) (delivery map[string]*influx.Series, last bool) {
+	delivery = make(map[string]*influx.Series)
 	for {
 		select {
 		case point, open := <-p.destination.points:
 			if open {
 				seriesName := point.SeriesName()
-				series, found := allSeries[seriesName]
+				series, found := delivery[seriesName]
 				if !found {
 					series = makeSeries(point)
 				}
 				series.Points = append(series.Points, point.Points)
-				allSeries[seriesName] = series
+				delivery[seriesName] = series
 			} else {
-				break
+				return delivery, true
 			}
 		case <-timeout.C:
-			p.deliver(allSeries)
-			allSeries = make(map[string]*influx.Series)
+			return delivery, false
 		}
 	}
-
-	p.deliver(allSeries)
 }
 
 func (p *Poster) deliver(allSeries map[string]*influx.Series) {
