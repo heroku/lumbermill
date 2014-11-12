@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-  "sync"
+	"sync"
 	"time"
 
 	influx "github.com/influxdb/influxdb-go"
@@ -19,7 +19,7 @@ type Poster struct {
 	pointsSuccessTime    metrics.Timer
 	pointsFailureCounter metrics.Counter
 	pointsFailureTime    metrics.Timer
-  waitGroup            *sync.WaitGroup
+	waitGroup            *sync.WaitGroup
 }
 
 func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
@@ -52,10 +52,10 @@ func (p *Poster) Run() {
 	var last bool
 	var delivery map[string]*influx.Series
 
-  p.waitGroup.Add(1)
+	p.waitGroup.Add(1)
 	timeout := time.NewTicker(time.Second)
 	defer func() { timeout.Stop() }()
-  defer p.waitGroup.Done()
+	defer p.waitGroup.Done()
 
 	for !last {
 		delivery, last = p.nextDelivery(timeout)
