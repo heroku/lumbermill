@@ -9,7 +9,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
-var deliverySizeHistogram = metrics.NewRegisteredHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
+var deliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 type Poster struct {
 	destination          *Destination
@@ -33,11 +33,11 @@ func NewPoster(clientConfig influx.ClientConfig, name string, destination *Desti
 		destination:          destination,
 		name:                 name,
 		influxClient:         influxClient,
-		pointsSuccessCounter: metrics.NewRegisteredCounter("lumbermill.poster.deliver.points."+name, metrics.DefaultRegistry),
-		pointsSuccessTime:    metrics.NewRegisteredTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
-		pointsFailureCounter: metrics.NewRegisteredCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
-		pointsFailureTime:    metrics.NewRegisteredTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
-    waitGroup: waitGroup,
+		pointsSuccessCounter: metrics.GetOrRegisterCounter("lumbermill.poster.deliver.points."+name, metrics.DefaultRegistry),
+		pointsSuccessTime:    metrics.GetOrRegisterTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
+		pointsFailureCounter: metrics.GetOrRegisterCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
+		pointsFailureTime:    metrics.GetOrRegisterTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
+		waitGroup:            waitGroup,
 	}
 }
 

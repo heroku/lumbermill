@@ -16,7 +16,7 @@ type Destination struct {
 func NewDestination(name string, chanCap int) *Destination {
 	destination := &Destination{Name: name}
 	destination.points = make(chan Point, chanCap)
-	destination.depthGauge = metrics.NewRegisteredGauge(
+	destination.depthGauge = metrics.GetOrRegisterGauge(
 		"lumbermill.points.pending."+name,
 		metrics.DefaultRegistry,
 	)
