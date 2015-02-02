@@ -1,19 +1,16 @@
 package main
 
 import (
-	"crypto/tls"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	influx "github.com/influxdb/influxdb-go"
+	"github.com/kr/s3/s3util"
 	metrics "github.com/rcrowley/go-metrics"
 	librato "github.com/rcrowley/go-metrics/librato"
 )
@@ -39,44 +36,13 @@ func (s ShutdownChan) Close() error {
 	return nil
 }
 
-func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
-	return influx.ClientConfig{
-		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
-		Username: os.Getenv("INFLUXDB_USER"), //"test",
-		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
-		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
-		IsSecure: true,
-		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
-				ResponseHeaderTimeout: 5 * time.Second,
-				Dial: func(network, address string) (net.Conn, error) {
-					return net.DialTimeout(network, address, 5*time.Second)
-				},
-			},
-			Timeout: 10 * time.Second,
-		},
-	}
-}
-
-// Creates clients which deliver to InfluxDB
-func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
-	clients := make([]influx.ClientConfig, 0)
-	for _, host := range strings.Split(hostlist, ",") {
-		host = strings.Trim(host, "\t ")
-		if host != "" {
-			clients = append(clients, createInfluxDBClient(host, skipVerify))
-		}
-	}
-	return clients
-}
-
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
 func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destination, *sync.WaitGroup) {
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
 	destinations := make([]*Destination, 0)
 
-	influxClients := createClients(hostlist, skipVerify)
+	influxClients := createInfluxDBClients(hostlist, skipVerify)
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
 		destination := NewDestination("null", PointChannelCapacity)
@@ -91,11 +57,30 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 			hashRing.Add(destination)
 			destinations = append(destinations, destination)
 			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, name, destination, posterGroup)
+				poster := NewInfluxDBPoster(client, name, destination, posterGroup)
 				go poster.Run()
 			}
 		}
 	}
+
+	return hashRing, destinations, posterGroup
+}
+
+// Creates destinations and attaches them to posters, which deliver to S3
+func createS3Routes(baseURL, accessKey, secretKey string) (*HashRing, []*Destination, *sync.WaitGroup) {
+	posterGroup := new(sync.WaitGroup)
+	hashRing := NewHashRing(HashRingReplication, nil)
+	destinations := make([]*Destination, 0)
+
+	config := &s3util.Config{}
+	config.AccessKey = accessKey
+	config.SecretKey = secretKey
+
+	destination := NewDestination(baseURL, PointChannelCapacity)
+	hashRing.Add(destination)
+	destinations = append(destinations, destination)
+	poster := NewS3Poster(destination, baseURL, config, posterGroup)
+	go poster.Run()
 
 	return hashRing, destinations, posterGroup
 }
@@ -119,7 +104,19 @@ func awaitShutdown(shutdownChan ShutdownChan, server *LumbermillServer, posterGr
 }
 
 func main() {
-	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+	var hashRing *HashRing
+	var destinations []*Destination
+	var posterGroup *sync.WaitGroup
+
+	switch {
+	case os.Getenv("INFLUXDB_HOSTS") != "":
+		hashRing, destinations, posterGroup = createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+	case os.Getenv("S3_BUCKET_URL") != "":
+		hashRing, destinations, posterGroup = createS3Routes(os.Getenv("S3_BUCKET_URL"), os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"))
+	default:
+		// just create a null poster
+		hashRing, destinations, posterGroup = createMessageRoutes("", os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+	}
 
 	if os.Getenv("LIBRATO_TOKEN") != "" {
 		go librato.Librato(
@@ -130,7 +127,7 @@ func main() {
 			os.Getenv("LIBRATO_SOURCE"),
 			[]float64{0.50, 0.95, 0.99},
 			time.Millisecond,
-			)
+		)
 	} else if os.Getenv("DEBUG") == "true" {
 		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}

@@ -5,7 +5,7 @@ type NullPoster struct {
 	name        string
 }
 
-func NewNullPoster(destination *Destination) *NullPoster {
+func NewNullPoster(destination *Destination) Poster {
 	return &NullPoster{
 		destination: destination,
 		name:        "null",

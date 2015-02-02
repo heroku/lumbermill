@@ -1,6 +1,9 @@
 {
 	"ImportPath": "github.com/heroku/lumbermill",
-	"GoVersion": "go1.3",
+	"GoVersion": "go1.4.1",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/apg/lpxgen",
@@ -17,6 +20,10 @@
 		{
 			"ImportPath": "github.com/kr/logfmt",
 			"Rev": "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+		},
+		{
+			"ImportPath": "github.com/kr/s3",
+			"Rev": "c070c8f9a8f0032d48f0d2a77d4e382788bd8a1d"
 		},
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
