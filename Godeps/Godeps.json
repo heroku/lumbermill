@@ -22,12 +22,13 @@
 			"Rev": "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 		},
 		{
-			"ImportPath": "github.com/kr/s3",
-			"Rev": "c070c8f9a8f0032d48f0d2a77d4e382788bd8a1d"
-		},
-		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "3be59ceb5538550555459fb77d0efe0e218cdfc7"
+		},
+		{
+			"ImportPath": "github.com/rlmcpherson/s3gof3r",
+			"Comment": "v0.4.9-4-g727695e",
+			"Rev": "727695e92fa8cda7a54ffcd9038fbf42e6373d70"
 		}
 	]
 }

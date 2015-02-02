@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kr/s3/s3util"
 	metrics "github.com/rcrowley/go-metrics"
 	librato "github.com/rcrowley/go-metrics/librato"
 )
@@ -67,19 +66,15 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 }
 
 // Creates destinations and attaches them to posters, which deliver to S3
-func createS3Routes(baseURL, accessKey, secretKey string) (*HashRing, []*Destination, *sync.WaitGroup) {
+func createS3Routes(bucketName string) (*HashRing, []*Destination, *sync.WaitGroup) {
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
 	destinations := make([]*Destination, 0)
 
-	config := &s3util.Config{}
-	config.AccessKey = accessKey
-	config.SecretKey = secretKey
-
-	destination := NewDestination(baseURL, PointChannelCapacity)
+	destination := NewDestination(bucketName, PointChannelCapacity)
 	hashRing.Add(destination)
 	destinations = append(destinations, destination)
-	poster := NewS3Poster(destination, baseURL, config, posterGroup)
+	poster := NewS3Poster(destination, bucketName, posterGroup)
 	go poster.Run()
 
 	return hashRing, destinations, posterGroup
@@ -111,8 +106,8 @@ func main() {
 	switch {
 	case os.Getenv("INFLUXDB_HOSTS") != "":
 		hashRing, destinations, posterGroup = createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
-	case os.Getenv("S3_BUCKET_URL") != "":
-		hashRing, destinations, posterGroup = createS3Routes(os.Getenv("S3_BUCKET_URL"), os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"))
+	case os.Getenv("S3_BUCKET") != "":
+		hashRing, destinations, posterGroup = createS3Routes(os.Getenv("S3_BUCKET"))
 	default:
 		// just create a null poster
 		hashRing, destinations, posterGroup = createMessageRoutes("", os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")

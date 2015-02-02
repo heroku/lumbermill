@@ -7,16 +7,15 @@ import (
 	"sync"
 	"time"
 
-	s3util "github.com/kr/s3/s3util"
 	metrics "github.com/rcrowley/go-metrics"
+	s3 "github.com/rlmcpherson/s3gof3r"
 )
 
 var s3DeliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.s3.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 type S3Poster struct {
 	destination  *Destination
-	config       *s3util.Config
-	baseURL      string
+	bucket       *s3.Bucket
 	currentFiles []s3File
 
 	pointsSuccessCounter metrics.Counter
@@ -31,11 +30,13 @@ type s3File struct {
 	writer   io.WriteCloser
 }
 
-func NewS3Poster(destination *Destination, baseURL string, config *s3util.Config, waitGroup *sync.WaitGroup) Poster {
+func NewS3Poster(destination *Destination, bucketName string, waitGroup *sync.WaitGroup) Poster {
+	keys, _ := s3.EnvKeys()
+	client := s3.New("", keys)
+
 	return &S3Poster{
 		destination:  destination,
-		config:       config,
-		baseURL:      baseURL,
+		bucket:       client.Bucket(bucketName),
 		currentFiles: make([]s3File, numSeries),
 		waitGroup:    waitGroup,
 	}
@@ -94,7 +95,7 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 				current.writer.Close()
 			}
 
-			w, err := s3util.Create(p.baseURL+nowFileName, nil, p.config)
+			w, err := p.bucket.PutWriter(nowFileName, nil, nil)
 			if err != nil {
 				continue
 			} else {
