@@ -82,7 +82,7 @@ func (p *S3Poster) nextDelivery(timeout *time.Ticker) (delivery [][]Point, last 
 
 func (p *S3Poster) deliver(allSeries [][]Point) {
 	// Write this data as: series-type/200601021504.tsv
-	datePrefix := time.Now().Format("200601021504")
+	datePrefix := time.Now().Truncate(10 * time.Minute).Format("200601021504")
 
 	for seriesType, points := range allSeries {
 		if len(points) == 0 {
