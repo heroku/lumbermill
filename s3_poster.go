@@ -117,6 +117,9 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 			}
 			r.WriteString("\n")
 		}
-		io.Copy(current.writer, r)
+		n, err := io.Copy(current.writer, r)
+		if err != nil {
+			log.Printf("fn=delivery poster=s3 action=copy byteswritten=%d err=%q", n, err)
+		}
 	}
 }
