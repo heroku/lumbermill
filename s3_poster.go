@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -97,7 +98,7 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 
 			w, err := p.bucket.PutWriter(nowFileName, nil, nil)
 			if err != nil {
-				log.Errorf("fn=delivery poster=s3 err=%q", err)
+				log.Printf("fn=delivery poster=s3 err=%q", err)
 				continue
 			} else {
 				current = s3File{fileName: nowFileName, writer: w}
