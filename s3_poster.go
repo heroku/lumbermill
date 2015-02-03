@@ -17,6 +17,7 @@ var s3DeliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.
 type S3Poster struct {
 	destination  *Destination
 	bucket       *s3.Bucket
+	machineName  string
 	currentFiles []s3File
 
 	pointsSuccessCounter metrics.Counter
@@ -31,13 +32,14 @@ type s3File struct {
 	writer   io.WriteCloser
 }
 
-func NewS3Poster(destination *Destination, bucketName string, waitGroup *sync.WaitGroup) Poster {
+func NewS3Poster(destination *Destination, bucketName, machineName string, waitGroup *sync.WaitGroup) Poster {
 	keys, _ := s3.EnvKeys()
 	client := s3.New("", keys)
 
 	return &S3Poster{
 		destination:  destination,
 		bucket:       client.Bucket(bucketName),
+		machineName:  machineName,
 		currentFiles: make([]s3File, numSeries),
 		waitGroup:    waitGroup,
 	}
@@ -89,7 +91,7 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 			continue
 		}
 
-		nowFileName := fmt.Sprintf("%s/%s.tsv", SeriesType(seriesType).Name(), datePrefix)
+		nowFileName := fmt.Sprintf("%s/%s-%s.tsv", SeriesType(seriesType).Name(), p.machineName, datePrefix)
 		current := p.currentFiles[seriesType]
 		if current.fileName != nowFileName {
 			if current.fileName != "" {

@@ -66,7 +66,7 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 }
 
 // Creates destinations and attaches them to posters, which deliver to S3
-func createS3Routes(bucketName string) (*HashRing, []*Destination, *sync.WaitGroup) {
+func createS3Routes(bucketName, machineName string) (*HashRing, []*Destination, *sync.WaitGroup) {
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
 	destinations := make([]*Destination, 0)
@@ -74,7 +74,7 @@ func createS3Routes(bucketName string) (*HashRing, []*Destination, *sync.WaitGro
 	destination := NewDestination(bucketName, PointChannelCapacity)
 	hashRing.Add(destination)
 	destinations = append(destinations, destination)
-	poster := NewS3Poster(destination, bucketName, posterGroup)
+	poster := NewS3Poster(destination, bucketName, machineName, posterGroup)
 	go poster.Run()
 
 	return hashRing, destinations, posterGroup
@@ -107,7 +107,7 @@ func main() {
 	case os.Getenv("INFLUXDB_HOSTS") != "":
 		hashRing, destinations, posterGroup = createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
 	case os.Getenv("S3_BUCKET") != "":
-		hashRing, destinations, posterGroup = createS3Routes(os.Getenv("S3_BUCKET"))
+		hashRing, destinations, posterGroup = createS3Routes(os.Getenv("S3_BUCKET"), os.Getenv("DYNO"))
 	default:
 		// just create a null poster
 		hashRing, destinations, posterGroup = createMessageRoutes("", os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
