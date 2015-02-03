@@ -92,7 +92,7 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 
 	for seriesType, points := range allSeries {
 		// Blacklist Router logs for now, as they are expensive.
-		if len(points) == 0 || seriesType == Router {
+		if len(points) == 0 || SeriesType(seriesType) == Router {
 			continue
 		}
 
