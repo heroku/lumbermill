@@ -70,6 +70,10 @@ func (p *S3Poster) nextDelivery(timeout *time.Ticker) (delivery [][]Point, last 
 		select {
 		case point, open := <-p.destination.points:
 			if open {
+				// Blacklist Router logs for now, as they are expensive.
+				if point.Type == Router {
+					continue
+				}
 				series := delivery[point.Type]
 				series = append(series, point)
 				delivery[point.Type] = series
@@ -87,7 +91,8 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 	datePrefix := time.Now().Truncate(10 * time.Minute).Format("200601021504")
 
 	for seriesType, points := range allSeries {
-		if len(points) == 0 {
+		// Blacklist Router logs for now, as they are expensive.
+		if len(points) == 0 || seriesType == Router {
 			continue
 		}
 
