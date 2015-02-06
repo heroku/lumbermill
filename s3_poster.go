@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"log"
@@ -110,13 +111,28 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 			} else {
 				current = s3File{fileName: nowFileName, writer: w}
 				p.currentFiles[seriesType] = current
+
+				// write the headers for the file.
+				r := new(bytes.Buffer)
+				r.WriteString("token")
+				for _, p := range seriesColumns[seriesType] {
+					r.WriteString(fmt.Sprintf("\t%v", p))
+				}
+				r.WriteString("\n")
+				n, err := io.Copy(current.writer, r)
+				if err != nil {
+					log.Printf("fn=delivery poster=s3 at=headers action=copy byteswritten=%d err=%q", n, err)
+				}
 			}
 		}
 
 		r := new(bytes.Buffer)
 		for _, pt := range points {
-			// Forgive me father, for I have sinned.
-			r.WriteString(pt.Token)
+			// Forgive me father, for I have sinned. Mask the token.
+			h := sha1.New()
+			io.WriteString(h, pt.Token)
+			r.WriteString(fmt.Sprintf("%x", h.Sum(nil)))
+
 			for _, p := range pt.Points {
 				r.WriteString(fmt.Sprintf("\t%v", p))
 			}
@@ -124,7 +140,7 @@ func (p *S3Poster) deliver(allSeries [][]Point) {
 		}
 		n, err := io.Copy(current.writer, r)
 		if err != nil {
-			log.Printf("fn=delivery poster=s3 action=copy byteswritten=%d err=%q", n, err)
+			log.Printf("fn=delivery poster=s3 at=points action=copy byteswritten=%d err=%q", n, err)
 		}
 	}
 }
