@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -18,15 +19,21 @@ type LumbermillServer struct {
 	http             *http.Server
 	shutdownChan     ShutdownChan
 	isShuttingDown   bool
+	credStore        map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillServer {
+func NewLumbermillServer(server *http.Server, hashRing *HashRing, creds string) *LumbermillServer {
+	store, err := parseCreds(creds)
+	if err != nil {
+		log.Fatalln("Unable to create credentials")
+	}
 
 	s := &LumbermillServer{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),
 		http:             server,
 		hashRing:         hashRing,
+		credStore:        store,
 	}
 
 	mux := http.NewServeMux()
@@ -121,12 +128,25 @@ func (s *LumbermillServer) checkAuth(r *http.Request) error {
 	user := userPassParts[0]
 	pass := userPassParts[1]
 
-	if string(user) != User {
-		return errors.New("Unknown user")
-	}
-	if string(pass) != Password {
-		return errors.New("Incorrect token")
+	if val, ok := s.credStore[string(user)]; !ok {
+		return errors.New("Unable to authenticate")
+	} else if val != string(pass) {
+		return errors.New("Unable to authenticate")
 	}
 
 	return nil
+}
+
+// Parse creds expects a string user1:password1|user2:password2
+func parseCreds(creds string) (map[string]string, error) {
+	store := make(map[string]string)
+	for _, u := range strings.Split(creds, "|") {
+		uparts := strings.SplitN(u, ":", 2)
+		if len(uparts) != 2 || len(uparts[0]) == 0 || len(uparts[1]) == 0 {
+			return store, fmt.Errorf("Unable to create credentials from '%s'", u)
+		}
+
+		store[uparts[0]] = uparts[1]
+	}
+	return store, nil
 }
