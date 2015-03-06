@@ -28,10 +28,11 @@ func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillSer
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/drain", func(w http.ResponseWriter, r *http.Request) {
-		s.serveDrain(w, r)
-		s.recycleConnection(w)
-	})
+	mux.HandleFunc("/drain", wrapBasicAuth(s,
+		func(w http.ResponseWriter, r *http.Request) {
+			s.serveDrain(w, r)
+			s.recycleConnection(w)
+		}))
 
 	mux.HandleFunc("/health", s.serveHealth)
 	mux.HandleFunc("/target/", wrapBasicAuth(s, s.serveTarget))

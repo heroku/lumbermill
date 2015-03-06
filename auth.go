@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Auther provides an interface for authentication
 type Auther interface {
 	AddPrincipal(user, pass string)
 	Authenticate(user, pass string) bool
@@ -69,10 +70,13 @@ func wrapBasicAuth(auth Auther, handle http.HandlerFunc) http.HandlerFunc {
 		user, pass, status := extractBasicAuth(r)
 		if status != http.StatusOK {
 			w.WriteHeader(status)
+			authFailureCounter.Inc(1)
+			return
 		}
 
 		if !auth.Authenticate(user, pass) {
 			w.WriteHeader(http.StatusUnauthorized)
+			authFailureCounter.Inc(1)
 			return
 		}
 

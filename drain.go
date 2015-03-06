@@ -69,19 +69,6 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	id := r.Header.Get("Logplex-Drain-Token")
 
-	if id == "" {
-		user, pass, status := extractBasicAuth(r)
-		if status != http.StatusOK {
-			w.WriteHeader(status)
-			authFailureCounter.Inc(1)
-			return
-		} else if !s.Authenticate(user, pass) {
-			w.WriteHeader(http.StatusForbidden)
-			authFailureCounter.Inc(1)
-			return
-		}
-	}
-
 	batchCounter.Inc(1)
 
 	parseStart := time.Now()
