@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/base64"
-	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -22,18 +17,13 @@ type LumbermillServer struct {
 	credStore        map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, hashRing *HashRing, creds string) *LumbermillServer {
-	store, err := parseCreds(creds)
-	if err != nil {
-		log.Fatalln("Unable to create credentials")
-	}
-
+func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillServer {
 	s := &LumbermillServer{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),
 		http:             server,
 		hashRing:         hashRing,
-		credStore:        store,
+		credStore:        make(map[string]string),
 	}
 
 	mux := http.NewServeMux()
@@ -44,7 +34,7 @@ func NewLumbermillServer(server *http.Server, hashRing *HashRing, creds string) 
 	})
 
 	mux.HandleFunc("/health", s.serveHealth)
-	mux.HandleFunc("/target/", s.serveTarget)
+	mux.HandleFunc("/target/", wrapBasicAuth(s, s.serveTarget))
 
 	s.http.Handler = mux
 
@@ -83,6 +73,17 @@ func (s *LumbermillServer) Run(connRecycle time.Duration) {
 	}
 }
 
+func (s *LumbermillServer) AddPrincipal(user, pass string) {
+	s.credStore[user] = pass
+}
+
+func (s *LumbermillServer) Authenticate(user, pass string) bool {
+	if p, ok := s.credStore[user]; ok && pass == p {
+		return true
+	}
+	return false
+}
+
 // Health Checks, so just say 200 - OK
 // TODO: Actual healthcheck
 func (s *LumbermillServer) serveHealth(w http.ResponseWriter, r *http.Request) {
@@ -97,56 +98,4 @@ func (s *LumbermillServer) awaitShutdown() {
 	<-s.shutdownChan
 	log.Printf("Shutting down.")
 	s.isShuttingDown = true
-}
-
-func (s *LumbermillServer) checkAuth(r *http.Request) error {
-	header := r.Header.Get("Authorization")
-	if header == "" {
-		return errors.New("Authorization required")
-	}
-	headerParts := strings.SplitN(header, " ", 2)
-	if len(headerParts) != 2 {
-		return errors.New("Authorization header is malformed")
-	}
-
-	method := headerParts[0]
-	if method != "Basic" {
-		return errors.New("Only Basic Authorization is accepted")
-	}
-
-	encodedUserPass := headerParts[1]
-	decodedUserPass, err := base64.StdEncoding.DecodeString(encodedUserPass)
-	if err != nil {
-		return errors.New("Authorization header is malformed")
-	}
-
-	userPassParts := bytes.SplitN(decodedUserPass, []byte{':'}, 2)
-	if len(userPassParts) != 2 {
-		return errors.New("Authorization header is malformed")
-	}
-
-	user := userPassParts[0]
-	pass := userPassParts[1]
-
-	if val, ok := s.credStore[string(user)]; !ok {
-		return errors.New("Unable to authenticate")
-	} else if val != string(pass) {
-		return errors.New("Unable to authenticate")
-	}
-
-	return nil
-}
-
-// Parse creds expects a string user1:password1|user2:password2
-func parseCreds(creds string) (map[string]string, error) {
-	store := make(map[string]string)
-	for _, u := range strings.Split(creds, "|") {
-		uparts := strings.SplitN(u, ":", 2)
-		if len(uparts) != 2 || len(uparts[0]) == 0 || len(uparts[1]) == 0 {
-			return store, fmt.Errorf("Unable to create credentials from '%s'", u)
-		}
-
-		store[uparts[0]] = uparts[1]
-	}
-	return store, nil
 }

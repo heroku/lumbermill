@@ -14,8 +14,10 @@ import (
 )
 
 var (
+	// TokenPrefix contains the prefix for non-heroku tokens.
 	TokenPrefix = []byte("t.")
-	Heroku      = []byte("heroku")
+	// Heroku contains the prefix for heroku tokens.
+	Heroku = []byte("heroku")
 
 	// go-metrics Instruments
 	wrongMethodErrorCounter    = metrics.GetOrRegisterCounter("lumbermill.errors.drain.wrong.method", metrics.DefaultRegistry)
@@ -54,7 +56,6 @@ func handleLogFmtParsingError(msg []byte, err error) {
 
 // "Parse tree" from hell
 func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
-
 	s.Add(1)
 	defer s.Done()
 
@@ -69,7 +70,12 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 	id := r.Header.Get("Logplex-Drain-Token")
 
 	if id == "" {
-		if err := s.checkAuth(r); err != nil {
+		user, pass, status := extractBasicAuth(r)
+		if status != http.StatusOK {
+			w.WriteHeader(status)
+			authFailureCounter.Inc(1)
+			return
+		} else if !s.Authenticate(user, pass) {
 			w.WriteHeader(http.StatusForbidden)
 			authFailureCounter.Inc(1)
 			return
@@ -84,7 +90,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 	linesCounterInc := 0
 
 	for lp.Next() {
-		linesCounterInc += 1
+		linesCounterInc++
 		header := lp.Header()
 
 		// If the syslog Name Header field contains what looks like a log token,

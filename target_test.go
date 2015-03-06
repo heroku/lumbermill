@@ -9,7 +9,9 @@ import (
 )
 
 func TestTargetWithMultipleAuth(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil), "user1:pass1|user2:pass2")
+	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
+	server.AddPrincipal("user1", "pass1")
+	server.AddPrincipal("user2", "pass2")
 
 	recorder := httptest.NewRecorder()
 
@@ -29,7 +31,8 @@ func TestTargetWithMultipleAuth(t *testing.T) {
 }
 
 func TestTargetWithoutAuth(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, nil, "foo:foo")
+	server := NewLumbermillServer(&http.Server{}, nil)
+	server.AddPrincipal("foo", "foo")
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -37,7 +40,7 @@ func TestTargetWithoutAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server.serveTarget(recorder, req)
+	server.http.Handler.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusForbidden {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -46,7 +49,8 @@ func TestTargetWithoutAuth(t *testing.T) {
 
 func TestTargetWithoutId(t *testing.T) {
 	//Setup
-	server := NewLumbermillServer(&http.Server{}, nil, "foo:foo")
+	server := NewLumbermillServer(&http.Server{}, nil)
+	server.AddPrincipal("foo", "foo")
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -55,7 +59,7 @@ func TestTargetWithoutId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server.serveTarget(recorder, req)
+	server.http.Handler.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -63,7 +67,8 @@ func TestTargetWithoutId(t *testing.T) {
 }
 
 func TestTargetWithoutRing(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil), "foo:foo")
+	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
+	server.AddPrincipal("foo", "foo")
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -72,7 +77,7 @@ func TestTargetWithoutRing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server.serveTarget(recorder, req)
+	server.http.Handler.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
@@ -81,7 +86,8 @@ func TestTargetWithoutRing(t *testing.T) {
 
 func TestTarget(t *testing.T) {
 	hashRing, _, _ := createMessageRoutes("null", true)
-	server := NewLumbermillServer(&http.Server{}, hashRing, "foo:foo")
+	server := NewLumbermillServer(&http.Server{}, hashRing)
+	server.AddPrincipal("foo", "foo")
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -90,7 +96,7 @@ func TestTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server.serveTarget(recorder, req)
+	server.http.Handler.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
