@@ -3,12 +3,8 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net/http"
-	"net/http/httptest"
-	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,45 +12,11 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
-type SleepyHandler struct {
-	Amt time.Duration
-}
-
-func (s *SleepyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	time.Sleep(s.Amt)
-	w.WriteHeader(http.StatusOK)
-}
-
-func SetupInfluxDB(handler http.Handler) *httptest.Server {
-	if handler == nil {
-		handler := http.NewServeMux()
-		handler.HandleFunc("/db", func(w http.ResponseWriter, req *http.Request) {
-			log.Printf("INFLUXDB: Got a request\n")
-			w.WriteHeader(http.StatusOK)
-		})
-	}
-
-	return httptest.NewTLSServer(handler)
-}
-
-func SetupLumbermill(influxHosts string) (*LumbermillServer, *httptest.Server, []*Destination, *sync.WaitGroup) {
-	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, true)
-	testServer := httptest.NewServer(nil)
-	lumbermill := NewLumbermillServer(testServer.Config, hashRing)
-	return lumbermill, testServer, destinations, waitGroup
-}
-
-func splitUrl(url string) (string, int) {
-	bits := strings.Split(url, ":")
-	port, _ := strconv.ParseInt(bits[1], 10, 16)
-	return bits[0], int(port)
-}
-
 func TestLumbermillDrain(t *testing.T) {
 	sendBatchCount := int64(100)
 	sendPointPerBatchCount := int64(10)
 
-	influxdb := SetupInfluxDB(&SleepyHandler{2 * time.Second})
+	influxdb := setupInfluxDBTestServer(&sleepyHandler{2 * time.Second})
 	influxHost := strings.TrimPrefix(influxdb.URL, "https://")
 
 	// snapshot old values
@@ -102,11 +64,12 @@ func TestLumbermillDrain(t *testing.T) {
 			t.Errorf("No router lines processed")
 		}
 		if batches != sendBatchCount {
-			t.Errorf("%d lost batches not accounted for", sendBatchCount - batches)
+			t.Errorf("%d lost batches not accounted for", sendBatchCount-batches)
 		}
 	}()
 
-	lumbermill, testServer, destinations, waitGroup := SetupLumbermill(influxHost)
+	lumbermill, testServer, destinations, waitGroup := setupLumbermillTestServer(influxHost, "user:pass")
+	lumbermill.AddPrincipal("foo", "foo")
 	shutdownChan := make(ShutdownChan)
 
 	defer func() {
@@ -118,16 +81,19 @@ func TestLumbermillDrain(t *testing.T) {
 	go func() {
 		client := &http.Client{
 			Transport: &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		}
 
 		gen := lpxgen.NewGenerator(int(sendPointPerBatchCount),
-			int(sendPointPerBatchCount) + 1, lpxgen.Router)
+			int(sendPointPerBatchCount)+1, lpxgen.Router)
+
 		drainUrl := fmt.Sprintf("%s/drain", testServer.URL)
 
 		for i := 0; i < int(sendBatchCount); i++ {
-			if _, err := client.Do(gen.Generate(drainUrl)); err != nil {
+			req := gen.Generate(drainUrl)
+			req.SetBasicAuth("foo", "foo")
+			if _, err := client.Do(req); err != nil {
 				t.Errorf("Got an error during client.Do: %q", err)
 			}
 		}

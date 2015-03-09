@@ -29,9 +29,6 @@ const (
 var (
 	connectionCloser = make(chan struct{})
 	Debug            = os.Getenv("DEBUG") == "true"
-
-	User     = os.Getenv("USER")
-	Password = os.Getenv("PASSWORD")
 )
 
 func (s ShutdownChan) Close() error {
@@ -130,13 +127,23 @@ func main() {
 			os.Getenv("LIBRATO_SOURCE"),
 			[]float64{0.50, 0.95, 0.99},
 			time.Millisecond,
-			)
+		)
 	} else if os.Getenv("DEBUG") == "true" {
 		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 
+	creds, err := parseCreds(os.Getenv("CRED_STORE"))
+	if err != nil {
+		log.Fatalf("Unable to parse credentials from CRED_STORE=%q: err=%q", os.Getenv("CRED_STORE"), err)
+	}
+
 	shutdownChan := make(ShutdownChan)
 	server := NewLumbermillServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, hashRing)
+
+	// add creds
+	for u, p := range creds {
+		server.AddPrincipal(u, p)
+	}
 
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)

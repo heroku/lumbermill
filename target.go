@@ -8,12 +8,6 @@ import (
 
 // GET /target/<opaque id>
 func (s *LumbermillServer) serveTarget(w http.ResponseWriter, r *http.Request) {
-	if err := s.checkAuth(r); err != nil {
-		w.WriteHeader(http.StatusForbidden)
-		authFailureCounter.Inc(1)
-		return
-	}
-
 	parts := strings.SplitN(r.URL.Path, "/", 3)
 	if len(parts) != 3 || parts[2] == "" {
 		w.WriteHeader(http.StatusBadRequest)
