@@ -2,7 +2,7 @@ package lpxgen
 
 import (
 	"bytes"
-	"github.com/bmizerany/lpx"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
 	"testing"
 )
 

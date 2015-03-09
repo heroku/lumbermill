@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	influx "github.com/influxdb/influxdb-go"
-	metrics "github.com/rcrowley/go-metrics"
+	influx "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/influxdb/influxdb-go"
+	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 )
 
 var deliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))

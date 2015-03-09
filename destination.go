@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	metrics "github.com/rcrowley/go-metrics"
+	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 )
 
 // A channel of points and related sampling

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	lpxgen "github.com/apg/lpxgen"
-	metrics "github.com/rcrowley/go-metrics"
+	lpxgen "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/apg/lpxgen"
+	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 )
 
 func TestLumbermillDrain(t *testing.T) {

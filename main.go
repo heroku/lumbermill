@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	influx "github.com/influxdb/influxdb-go"
-	metrics "github.com/rcrowley/go-metrics"
-	librato "github.com/rcrowley/go-metrics/librato"
+	influx "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/influxdb/influxdb-go"
+	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
+	librato "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics/librato"
 )
 
 type ShutdownChan chan struct{}

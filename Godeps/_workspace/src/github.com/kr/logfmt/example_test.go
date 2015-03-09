@@ -3,7 +3,7 @@ package logfmt_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/kr/logfmt"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/kr/logfmt"
 	"log"
 	"strconv"
 )

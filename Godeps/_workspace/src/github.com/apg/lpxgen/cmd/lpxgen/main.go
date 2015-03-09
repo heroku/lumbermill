@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/apg/lpxgen"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/apg/lpxgen"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,16 +11,16 @@ import (
 )
 
 var (
-	count = flag.Int("count", 1000, "Number of batches to send")
+	count    = flag.Int("count", 1000, "Number of batches to send")
 	minbatch = flag.Int("min", 1, "Minimum number of messages in a batch")
 	maxbatch = flag.Int("max", 100, "Maximum number of messages in a batch")
-	logdist = flag.String("dist", "default", "Distribution of log types. <type>:0.9,<type>:0.1")
+	logdist  = flag.String("dist", "default", "Distribution of log types. <type>:0.9,<type>:0.1")
 )
 
 func logFromString(l string) lpxgen.Log {
 	switch l {
 	case "router":
-    return lpxgen.Router
+		return lpxgen.Router
 	case "dynomem":
 		return lpxgen.DynoMem
 	case "dynoload":
@@ -63,7 +63,7 @@ func main() {
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: %s [options] URL\n", os.Args[0])
-    flag.PrintDefaults()
+		flag.PrintDefaults()
 	}
 
 	if flag.NArg() != 1 {

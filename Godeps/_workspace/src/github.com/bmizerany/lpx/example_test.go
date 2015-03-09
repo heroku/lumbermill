@@ -2,7 +2,7 @@ package lpx_test
 
 import (
 	"bufio"
-	"github.com/bmizerany/lpx"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
 	"net/http"
 )
 

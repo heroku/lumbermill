@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bmizerany/lpx"
-	"github.com/kr/logfmt"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/kr/logfmt"
+	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 )
 
 var (
