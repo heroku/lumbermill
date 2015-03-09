@@ -1,12 +1,12 @@
 language: go
 go:
-- 1.4.1
+- 1.4.2
 before_install:
 - go get github.com/tools/godep
 - export PATH=$HOME/gopath/bin:$PATH
 install: godep go version
 script:
-- godep go test -v ./...
+- go test -v ./...
 notifications:
   email: false
   hipchat:
