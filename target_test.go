@@ -42,7 +42,7 @@ func TestTargetWithoutAuth(t *testing.T) {
 
 	server.http.Handler.ServeHTTP(recorder, req)
 
-	if recorder.Code != http.StatusForbidden {
+	if recorder.Code != http.StatusBadRequest {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
 	}
 }

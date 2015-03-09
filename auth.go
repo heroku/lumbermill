@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,44 +10,6 @@ import (
 type Auther interface {
 	AddPrincipal(user, pass string)
 	Authenticate(user, pass string) bool
-}
-
-func extractBasicAuth(r *http.Request) (user, pass string, status int) {
-	status = http.StatusOK
-	header := r.Header.Get("Authorization")
-	if header == "" {
-		status = http.StatusForbidden
-		return
-	}
-	headerParts := strings.SplitN(header, " ", 2)
-	if len(headerParts) != 2 {
-		status = http.StatusBadRequest
-		return
-	}
-
-	method := headerParts[0]
-	if method != "Basic" {
-		status = http.StatusBadRequest
-		return
-	}
-
-	encodedUserPass := headerParts[1]
-	decodedUserPass, err := base64.StdEncoding.DecodeString(encodedUserPass)
-	if err != nil {
-		status = http.StatusBadRequest
-		return
-	}
-
-	userPassParts := strings.SplitN(string(decodedUserPass), ":", 2)
-	if len(userPassParts) != 2 {
-		status = http.StatusBadRequest
-		return
-	}
-
-	user = userPassParts[0]
-	pass = userPassParts[1]
-
-	return
 }
 
 // Parse creds expects a string user1:password1|user2:password2
@@ -67,9 +28,9 @@ func parseCreds(creds string) (map[string]string, error) {
 
 func wrapBasicAuth(auth Auther, handle http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, pass, status := extractBasicAuth(r)
-		if status != http.StatusOK {
-			w.WriteHeader(status)
+		user, pass, ok := r.BasicAuth()
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
 			authFailureCounter.Inc(1)
 			return
 		}
