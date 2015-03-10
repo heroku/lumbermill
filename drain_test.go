@@ -69,7 +69,6 @@ func TestLumbermillDrain(t *testing.T) {
 	}()
 
 	lumbermill, testServer, destinations, waitGroup := setupLumbermillTestServer(influxHost, "user:pass")
-	lumbermill.AddPrincipal("foo", "foo")
 	shutdownChan := make(ShutdownChan)
 
 	defer func() {

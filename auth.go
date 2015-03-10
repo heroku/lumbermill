@@ -6,41 +6,76 @@ import (
 	"strings"
 )
 
-// Auther provides an interface for authentication
-type Auther interface {
-	AddPrincipal(user, pass string)
-	Authenticate(user, pass string) bool
+// Authenticater provides an interface for authentication of a http.Request
+type Authenticater interface {
+	Authenticate(r *http.Request) bool
 }
 
-// Parse creds expects a string user1:password1|user2:password2
-func parseCreds(creds string) (map[string]string, error) {
-	store := make(map[string]string)
+// wrapAuth returns a http.Handlerfunc that runs the passed Handlerfunc if and
+// only if the Authenticator can authenticate the request
+func wrapAuth(auth Authenticater, handle http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if auth.Authenticate(r) {
+			handle(w, r)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+	}
+}
+
+// BasicAuth will handle normal user/password Basic Auth
+// It handles multiple valid passwords for the same user.
+type BasicAuth struct {
+	creds map[string][]string
+}
+
+// NewBasicAuth returns an empty BasicAuth Authenticator
+func NewBasicAuth() BasicAuth {
+	return BasicAuth{
+		creds: make(map[string][]string),
+	}
+}
+
+// NewBasicAuthFromString creates and populates a BasicAuth from the provided
+// credentials, encoded as a string of the following format:
+// user:password|user:password|...
+func NewBasicAuthFromString(creds string) (BasicAuth, error) {
+	ba := NewBasicAuth()
 	for _, u := range strings.Split(creds, "|") {
 		uparts := strings.SplitN(u, ":", 2)
 		if len(uparts) != 2 || len(uparts[0]) == 0 || len(uparts[1]) == 0 {
-			return store, fmt.Errorf("Unable to create credentials from '%s'", u)
+			return ba, fmt.Errorf("Unable to create credentials from '%s'", u)
 		}
 
-		store[uparts[0]] = uparts[1]
+		ba.AddPrincipal(uparts[0], uparts[1])
 	}
-	return store, nil
+	return ba, nil
 }
 
-func wrapBasicAuth(auth Auther, handle http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			authFailureCounter.Inc(1)
-			return
-		}
-
-		if !auth.Authenticate(user, pass) {
-			w.WriteHeader(http.StatusUnauthorized)
-			authFailureCounter.Inc(1)
-			return
-		}
-
-		handle(w, r)
+// AddPrincipal add's a user/password combo to the list of valid combinations
+func (ba *BasicAuth) AddPrincipal(user, pass string) {
+	u, existed := ba.creds[user]
+	if !existed {
+		u = make([]string, 0, 1)
 	}
+	ba.creds[user] = append(u, pass)
+}
+
+// Authenticate returns true if the Request has a valid BasicAuth signature and
+// that signature encodes a username/password that the BasicAuth knows
+func (ba BasicAuth) Authenticate(r *http.Request) bool {
+	user, pass, ok := r.BasicAuth()
+	if !ok {
+		return false
+	}
+
+	if passwords, ok := ba.creds[user]; ok {
+		for _, password := range passwords {
+			if password == pass {
+				return true
+			}
+		}
+	}
+
+	return false
 }

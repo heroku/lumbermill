@@ -17,7 +17,7 @@ type LumbermillServer struct {
 	credStore        map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillServer {
+func NewLumbermillServer(server *http.Server, auth Authenticater, hashRing *HashRing) *LumbermillServer {
 	s := &LumbermillServer{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),
@@ -28,14 +28,14 @@ func NewLumbermillServer(server *http.Server, hashRing *HashRing) *LumbermillSer
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/drain", wrapBasicAuth(s,
+	mux.HandleFunc("/drain", wrapAuth(auth,
 		func(w http.ResponseWriter, r *http.Request) {
 			s.serveDrain(w, r)
 			s.recycleConnection(w)
 		}))
 
 	mux.HandleFunc("/health", s.serveHealth)
-	mux.HandleFunc("/target/", wrapBasicAuth(s, s.serveTarget))
+	mux.HandleFunc("/target/", wrapAuth(auth, s.serveTarget))
 
 	s.http.Handler = mux
 
@@ -72,17 +72,6 @@ func (s *LumbermillServer) Run(connRecycle time.Duration) {
 	if err := s.http.ListenAndServe(); err != nil {
 		log.Fatalln("Unable to start HTTP server: ", err)
 	}
-}
-
-func (s *LumbermillServer) AddPrincipal(user, pass string) {
-	s.credStore[user] = pass
-}
-
-func (s *LumbermillServer) Authenticate(user, pass string) bool {
-	if p, ok := s.credStore[user]; ok && pass == p {
-		return true
-	}
-	return false
 }
 
 // Health Checks, so just say 200 - OK
