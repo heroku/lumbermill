@@ -9,9 +9,10 @@ import (
 )
 
 func TestTargetWithMultipleAuth(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
-	server.AddPrincipal("user1", "pass1")
-	server.AddPrincipal("user2", "pass2")
+	ba := NewBasicAuth()
+	ba.AddPrincipal("user1", "pass1")
+	ba.AddPrincipal("user2", "pass2")
+	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 
@@ -30,9 +31,33 @@ func TestTargetWithMultipleAuth(t *testing.T) {
 	}
 }
 
+func TestTargetWithMultiplePasswords(t *testing.T) {
+	ba := NewBasicAuth()
+	ba.AddPrincipal("user", "pass1")
+	ba.AddPrincipal("user", "pass2")
+	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
+
+	recorder := httptest.NewRecorder()
+
+	for i := 1; i <= 2; i++ {
+		req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("foo")))
+		req.SetBasicAuth("user", fmt.Sprintf("pass%d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		server.serveTarget(recorder, req)
+
+		if recorder.Code == http.StatusForbidden {
+			t.Fatal("Provided proper credentials, was forbidden.")
+		}
+	}
+}
+
 func TestTargetWithoutAuth(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, nil)
-	server.AddPrincipal("foo", "foo")
+	ba := NewBasicAuth()
+	ba.AddPrincipal("foo", "foo")
+	server := NewLumbermillServer(&http.Server{}, ba, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -42,15 +67,16 @@ func TestTargetWithoutAuth(t *testing.T) {
 
 	server.http.Handler.ServeHTTP(recorder, req)
 
-	if recorder.Code != http.StatusBadRequest {
+	if recorder.Code != http.StatusUnauthorized {
 		t.Fatal("Wrong Response Code: ", recorder.Code)
 	}
 }
 
 func TestTargetWithoutId(t *testing.T) {
 	//Setup
-	server := NewLumbermillServer(&http.Server{}, nil)
-	server.AddPrincipal("foo", "foo")
+	ba := NewBasicAuth()
+	ba.AddPrincipal("foo", "foo")
+	server := NewLumbermillServer(&http.Server{}, ba, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -67,12 +93,11 @@ func TestTargetWithoutId(t *testing.T) {
 }
 
 func TestTargetWithoutRing(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, NewHashRing(1, nil))
-	server.AddPrincipal("foo", "foo")
+	server := NewLumbermillServer(&http.Server{}, AnyOrNoAuth{}, NewHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
-	req.SetBasicAuth("foo", "foo")
+	//req.SetBasicAuth("foo", "foo")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,8 +111,7 @@ func TestTargetWithoutRing(t *testing.T) {
 
 func TestTarget(t *testing.T) {
 	hashRing, _, _ := createMessageRoutes("null", true)
-	server := NewLumbermillServer(&http.Server{}, hashRing)
-	server.AddPrincipal("foo", "foo")
+	server := NewLumbermillServer(&http.Server{}, AnyOrNoAuth{}, hashRing)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
