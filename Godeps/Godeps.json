@@ -14,6 +14,10 @@
 			"Rev": "af85cf24c1567bcb5a2e4c21597cc049eab31f55"
 		},
 		{
+			"ImportPath": "github.com/heroku/authenticater",
+			"Rev": "463c5fd4fa1798d3a421a44f76f404616ee3cda5"
+		},
+		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
 			"Rev": "23dc106e2636171db26f6a9296e8a52769726b65"
 		},
