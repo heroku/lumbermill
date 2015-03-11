@@ -1,3 +1,6 @@
+[![Travis](https://img.shields.io/travis/heroku/lumbermill.svg)](https://travis-ci.org/heroku/lumbermill)
+[![GoDoc](https://godoc.org/github.com/heroku/lumbermill?status.svg)](http://godoc.org/github.com/heroku/lumbermill)
+
 # Lumbermill
 
 This is a Go app which takes Heroku Log drains and parses the router and dyno information, and then pushes metrics to influxdb.
