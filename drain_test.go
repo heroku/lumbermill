@@ -87,10 +87,10 @@ func TestLumbermillDrain(t *testing.T) {
 		gen := lpxgen.NewGenerator(int(sendPointPerBatchCount),
 			int(sendPointPerBatchCount)+1, lpxgen.Router)
 
-		drainUrl := fmt.Sprintf("%s/drain", testServer.URL)
+		drainURL := fmt.Sprintf("%s/drain", testServer.URL)
 
 		for i := 0; i < int(sendBatchCount); i++ {
-			req := gen.Generate(drainUrl)
+			req := gen.Generate(drainURL)
 			req.SetBasicAuth("foo", "foo")
 			if _, err := client.Do(req); err != nil {
 				t.Errorf("Got an error during client.Do: %q", err)

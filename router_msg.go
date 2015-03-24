@@ -13,7 +13,7 @@ var (
 	keyMethod    = []byte("method")
 	keyPath      = []byte("path")
 	keyHost      = []byte("host")
-	keyRequestId = []byte("request_id")
+	keyRequestID = []byte("request_id")
 	keyFwd       = []byte("fwd")
 	keyConnect   = []byte("connect")
 	keyService   = []byte("service")
@@ -32,7 +32,7 @@ type routerMsg struct {
 	Method    string
 	Path      string
 	Host      string
-	RequestId string
+	RequestID string
 	Fwd       string
 	Dyno      string
 	Connect   int
@@ -49,8 +49,8 @@ func (rm *routerMsg) HandleLogfmt(key, val []byte) error {
 		rm.Path = string(val)
 	case bytes.Equal(key, keyHost):
 		rm.Host = string(val)
-	case bytes.Equal(key, keyRequestId):
-		rm.RequestId = string(val)
+	case bytes.Equal(key, keyRequestID):
+		rm.RequestID = string(val)
 	case bytes.Equal(key, keyFwd):
 		rm.Fwd = string(val)
 	case bytes.Equal(key, keyDyno):
@@ -95,7 +95,7 @@ type routerError struct {
 	Fwd       string
 	Dyno      string
 	Path      string
-	RequestId string
+	RequestID string
 	Connect   int
 	Service   int
 	Status    int
@@ -119,8 +119,8 @@ func (re *routerError) HandleLogfmt(key, val []byte) error {
 		re.Fwd = string(val)
 	case bytes.Equal(key, keyPath):
 		re.Path = string(val)
-	case bytes.Equal(key, keyRequestId):
-		re.RequestId = string(val)
+	case bytes.Equal(key, keyRequestID):
+		re.RequestID = string(val)
 	case bytes.Equal(key, keyDyno):
 		re.Dyno = string(val)
 	case bytes.Equal(key, keyConnect):

@@ -1,18 +1,18 @@
 package main
 
-type NullPoster struct {
+type nullPoster struct {
 	destination *Destination
 	name        string
 }
 
-func NewNullPoster(destination *Destination) *NullPoster {
-	return &NullPoster{
+func newNullPoster(destination *Destination) *nullPoster {
+	return &nullPoster{
 		destination: destination,
 		name:        "null",
 	}
 }
 
-func (p *NullPoster) Run() {
+func (p *nullPoster) Run() {
 	for _ = range p.destination.points {
 	}
 }

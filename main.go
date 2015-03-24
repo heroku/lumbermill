@@ -57,7 +57,8 @@ func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
 
 // Creates clients which deliver to InfluxDB
 func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
-	clients := make([]influx.ClientConfig, 0)
+	var clients []influx.ClientConfig
+
 	for _, host := range strings.Split(hostlist, ",") {
 		host = strings.Trim(host, "\t ")
 		if host != "" {
@@ -69,9 +70,9 @@ func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
 func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destination, *sync.WaitGroup) {
+	var destinations []*Destination
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
-	destinations := make([]*Destination, 0)
 
 	influxClients := createClients(hostlist, skipVerify)
 	if len(influxClients) == 0 {
@@ -79,7 +80,7 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 		destination := NewDestination("null", PointChannelCapacity)
 		hashRing.Add(destination)
 		destinations = append(destinations, destination)
-		poster := NewNullPoster(destination)
+		poster := newNullPoster(destination)
 		go poster.Run()
 	} else {
 		for _, client := range influxClients {
@@ -143,7 +144,7 @@ func main() {
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)
 
-	closers := make([]io.Closer, 0)
+	var closers []io.Closer
 	closers = append(closers, server)
 	closers = append(closers, shutdownChan)
 	for _, cls := range destinations {
