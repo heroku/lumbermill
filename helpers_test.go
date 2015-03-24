@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
 )
 
 type sleepyHandler struct {
@@ -34,7 +36,7 @@ func setupInfluxDBTestServer(handler http.Handler) *httptest.Server {
 func setupLumbermillTestServer(influxHosts, creds string) (*LumbermillServer, *httptest.Server, []*Destination, *sync.WaitGroup) {
 	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, true)
 	testServer := httptest.NewServer(nil)
-	lumbermill := NewLumbermillServer(testServer.Config, AnyOrNoAuth{}, hashRing)
+	lumbermill := NewLumbermillServer(testServer.Config, auth.AnyOrNoAuth{}, hashRing)
 	return lumbermill, testServer, destinations, waitGroup
 }
 

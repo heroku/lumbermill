@@ -1,4 +1,4 @@
-package main
+package authenticater
 
 import (
 	"bytes"
@@ -6,12 +6,6 @@ import (
 	"net/http"
 	"testing"
 )
-
-type AnyOrNoAuth struct{}
-
-func (fa AnyOrNoAuth) Authenticate(r *http.Request) bool {
-	return true
-}
 
 var (
 	// CREDS, user, passwords...

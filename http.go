@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
 )
 
 type LumbermillServer struct {
@@ -17,7 +19,7 @@ type LumbermillServer struct {
 	credStore        map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, auth Authenticater, hashRing *HashRing) *LumbermillServer {
+func NewLumbermillServer(server *http.Server, a auth.Authenticater, hashRing *HashRing) *LumbermillServer {
 	s := &LumbermillServer{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),
@@ -28,14 +30,14 @@ func NewLumbermillServer(server *http.Server, auth Authenticater, hashRing *Hash
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/drain", wrapAuth(auth,
+	mux.HandleFunc("/drain", auth.WrapAuth(a,
 		func(w http.ResponseWriter, r *http.Request) {
 			s.serveDrain(w, r)
 			s.recycleConnection(w)
 		}))
 
 	mux.HandleFunc("/health", s.serveHealth)
-	mux.HandleFunc("/target/", wrapAuth(auth, s.serveTarget))
+	mux.HandleFunc("/target/", auth.WrapAuth(a, s.serveTarget))
 
 	s.http.Handler = mux
 

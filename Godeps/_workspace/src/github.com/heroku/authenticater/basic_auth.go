@@ -1,27 +1,10 @@
-package main
+package authenticater
 
 import (
 	"fmt"
 	"net/http"
 	"strings"
 )
-
-// Authenticater provides an interface for authentication of a http.Request
-type Authenticater interface {
-	Authenticate(r *http.Request) bool
-}
-
-// wrapAuth returns a http.Handlerfunc that runs the passed Handlerfunc if and
-// only if the Authenticator can authenticate the request
-func wrapAuth(auth Authenticater, handle http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if auth.Authenticate(r) {
-			handle(w, r)
-		} else {
-			w.WriteHeader(http.StatusUnauthorized)
-		}
-	}
-}
 
 // BasicAuth will handle normal user/password Basic Auth
 // It handles multiple valid passwords for the same user.
