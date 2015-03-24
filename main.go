@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
 	influx "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/influxdb/influxdb-go"
 	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 	librato "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics/librato"
@@ -133,7 +134,7 @@ func main() {
 		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 	}
 
-	basicAuther, err := NewBasicAuthFromString(os.Getenv("CRED_STORE"))
+	basicAuther, err := auth.NewBasicAuthFromString(os.Getenv("CRED_STORE"))
 	if err != nil {
 		log.Fatalf("Unable to parse credentials from CRED_STORE=%q: err=%q", os.Getenv("CRED_STORE"), err)
 	}

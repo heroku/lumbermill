@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
 )
 
 func TestTargetWithMultipleAuth(t *testing.T) {
-	ba := NewBasicAuth()
+	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user1", "pass1")
 	ba.AddPrincipal("user2", "pass2")
 	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
@@ -32,7 +34,7 @@ func TestTargetWithMultipleAuth(t *testing.T) {
 }
 
 func TestTargetWithMultiplePasswords(t *testing.T) {
-	ba := NewBasicAuth()
+	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user", "pass1")
 	ba.AddPrincipal("user", "pass2")
 	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
@@ -55,7 +57,7 @@ func TestTargetWithMultiplePasswords(t *testing.T) {
 }
 
 func TestTargetWithoutAuth(t *testing.T) {
-	ba := NewBasicAuth()
+	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("foo", "foo")
 	server := NewLumbermillServer(&http.Server{}, ba, nil)
 
@@ -74,7 +76,7 @@ func TestTargetWithoutAuth(t *testing.T) {
 
 func TestTargetWithoutId(t *testing.T) {
 	//Setup
-	ba := NewBasicAuth()
+	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("foo", "foo")
 	server := NewLumbermillServer(&http.Server{}, ba, nil)
 
@@ -93,7 +95,7 @@ func TestTargetWithoutId(t *testing.T) {
 }
 
 func TestTargetWithoutRing(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, AnyOrNoAuth{}, NewHashRing(1, nil))
+	server := NewLumbermillServer(&http.Server{}, auth.AnyOrNoAuth{}, NewHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -111,7 +113,7 @@ func TestTargetWithoutRing(t *testing.T) {
 
 func TestTarget(t *testing.T) {
 	hashRing, _, _ := createMessageRoutes("null", true)
-	server := NewLumbermillServer(&http.Server{}, AnyOrNoAuth{}, hashRing)
+	server := NewLumbermillServer(&http.Server{}, auth.AnyOrNoAuth{}, hashRing)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))

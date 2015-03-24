@@ -1,17 +1,13 @@
-package main
+package authenticater
 
 import (
 	"bytes"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 	"testing"
 )
-
-type AnyOrNoAuth struct{}
-
-func (fa AnyOrNoAuth) Authenticate(r *http.Request) bool {
-	return true
-}
 
 var (
 	// CREDS, user, passwords...
@@ -68,4 +64,35 @@ func TestBasicAuthNegatives(t *testing.T) {
 			log.Fatalf("Expected basic auth to fail (CREDS = '%s', USER = '%s', PWD = '%s'), but didn't.", testValues[0], testValues[1], testValues[2])
 		}
 	}
+}
+
+// run with -race
+func TestBasicAuthRace(t *testing.T) {
+	ba := NewBasicAuth()
+	wg := sync.WaitGroup{}
+	for i := 0; i <= 10000; i++ {
+		wg.Add(1)
+		go func(v int) {
+			t := strconv.Itoa(v)
+			ba.AddPrincipal("test"+t, "pass"+t)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	for i := 0; i <= 10000; i++ {
+		wg.Add(1)
+		go func(v int) {
+			if r, err := http.NewRequest("GET", "/", bytes.NewBufferString("")); err != nil {
+				log.Fatalf("Unable to create request #%d\n", v)
+			} else {
+				t := strconv.Itoa(v)
+				r.SetBasicAuth("test"+t, "pass"+t)
+				if !ba.Authenticate(r) {
+					log.Fatalf("Unable to authenticate request #%d\n", v)
+				}
+			}
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
 }

@@ -1,0 +1,11 @@
+language: go
+go:
+- 1.4.2
+script:
+- go test -v -race ./...
+notifications:
+  hipchat:
+    rooms:
+      secure: d6gEvWJsMeM1B89bvANSwOq+M7+patQi/Qv772LtWdlU6DEprqatpOjftYcKlP4XsXFKZK/8fm0swKuRDIiltfPwoH02XGeqafFownXs57xzj1Nl2l2ZgeN9ZKo3grvv4LHGQZVSsGwpnXas4VzSJiDDh3K/o3eOgMnET2L5LwM=
+    template:
+    - "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}"
