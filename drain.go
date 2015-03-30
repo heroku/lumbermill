@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
@@ -94,6 +95,17 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 		}
 
 		destination := s.hashRing.Get(id)
+
+		// Lock, or don't do any work, but don't block.
+		// This, essentially, samples the incoming tokens for the purposes of health checking
+		// live tokens. Rather than use a random number generator, or a global counter, we
+		// let the scheduler do the sampling for us.
+		if atomic.CompareAndSwapInt32(s.tokenLock, 0, 1) {
+			s.recentTokensLock.Lock()
+			s.recentTokens[destination.Name] = id
+			s.recentTokensLock.Unlock()
+			atomic.StoreInt32(s.tokenLock, 0)
+		}
 
 		msg := lp.Bytes()
 		switch {
