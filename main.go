@@ -91,7 +91,11 @@ func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destin
 			destinations = append(destinations, destination)
 			for p := 0; p < PostersPerHost; p++ {
 				poster := NewPoster(client, name, destination, posterGroup)
-				go poster.Run()
+				posterGroup.Add(1)
+				go func() {
+					poster.Run()
+					posterGroup.Done()
+				}()
 			}
 		}
 	}
