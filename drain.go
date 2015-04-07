@@ -139,7 +139,7 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 						handleLogFmtParsingError(msg, err)
 						continue
 					}
-					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
+					destination.PostPoint(point{id, routerEvent, []interface{}{timestamp, re.Code}})
 
 				// If the app is blank (not pushed) we don't care
 				// do nothing atm, increment a counter
@@ -156,7 +156,7 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					destination.PostPoint(Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}})
+					destination.PostPoint(point{id, routerRequest, []interface{}{timestamp, rm.Status, rm.Service}})
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -173,7 +173,7 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					what := string(lp.Header().Procid)
 					destination.PostPoint(
-						Point{id, EventsDyno, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
+						point{id, dynoEvents, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
 					)
 
 				// Dyno log-runtime-metrics memory messages
@@ -189,9 +189,9 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					if dm.Source != "" {
 						destination.PostPoint(
-							Point{
+							point{
 								id,
-								DynoMem,
+								dynoMem,
 								[]interface{}{
 									timestamp,
 									dm.Source,
@@ -220,9 +220,9 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					if dm.Source != "" {
 						destination.PostPoint(
-							Point{
+							point{
 								id,
-								DynoLoad,
+								dynoLoad,
 								[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min, dynoType(dm.Source)},
 							},
 						)
