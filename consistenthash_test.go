@@ -53,7 +53,7 @@ func TestHashing(t *testing.T) {
 
 	for k, v := range testCases {
 		if hash.Get(k) != v {
-			t.Errorf("Asking for %s, should have yielded %s", k, v)
+			t.Errorf("Asking for %s, should have yielded %v", k, v)
 		}
 	}
 
