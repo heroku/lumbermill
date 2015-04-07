@@ -19,7 +19,6 @@ type Poster struct {
 	pointsSuccessTime    metrics.Timer
 	pointsFailureCounter metrics.Counter
 	pointsFailureTime    metrics.Timer
-	waitGroup            *sync.WaitGroup
 }
 
 func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
@@ -37,7 +36,6 @@ func NewPoster(clientConfig influx.ClientConfig, name string, destination *Desti
 		pointsSuccessTime:    metrics.GetOrRegisterTimer("lumbermill.poster.success.time."+name, metrics.DefaultRegistry),
 		pointsFailureCounter: metrics.GetOrRegisterCounter("lumbermill.poster.error.points."+name, metrics.DefaultRegistry),
 		pointsFailureTime:    metrics.GetOrRegisterTimer("lumbermill.poster.error.time."+name, metrics.DefaultRegistry),
-		waitGroup:            waitGroup,
 	}
 }
 
@@ -52,10 +50,8 @@ func (p *Poster) Run() {
 	var last bool
 	var delivery map[string]*influx.Series
 
-	p.waitGroup.Add(1)
 	timeout := time.NewTicker(time.Second)
 	defer func() { timeout.Stop() }()
-	defer p.waitGroup.Done()
 
 	for !last {
 		delivery, last = p.nextDelivery(timeout)
