@@ -107,7 +107,7 @@ func awaitSignals(ss ...io.Closer) {
 	}
 }
 
-func awaitShutdown(shutdownChan shutdownChan, server *LumbermillServer, posterGroup *sync.WaitGroup) {
+func awaitShutdown(shutdownChan shutdownChan, server *server, posterGroup *sync.WaitGroup) {
 	<-shutdownChan
 	log.Printf("waiting for inflight requests to finish.")
 	server.Wait()
@@ -147,7 +147,7 @@ func main() {
 	}
 
 	shutdownChan := make(shutdownChan)
-	server := NewLumbermillServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
+	server := newServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
 
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)

@@ -20,7 +20,7 @@ var influxDbSeriesCheckQueries = []string{
 var healthCheckClientsLock = new(sync.Mutex)
 var healthCheckClients = make(map[string]*influx.Client)
 
-type LumbermillServer struct {
+type server struct {
 	sync.WaitGroup
 	connectionCloser chan struct{}
 	hashRing         *hashRing
@@ -35,11 +35,11 @@ type LumbermillServer struct {
 	recentTokens     map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, ath auth.Authenticater, hashRing *hashRing) *LumbermillServer {
-	s := &LumbermillServer{
+func newServer(httpServer *http.Server, ath auth.Authenticater, hashRing *hashRing) *server {
+	s := &server{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),
-		http:             server,
+		http:             httpServer,
 		hashRing:         hashRing,
 		credStore:        make(map[string]string),
 		tokenLock:        new(int32),
@@ -64,19 +64,19 @@ func NewLumbermillServer(server *http.Server, ath auth.Authenticater, hashRing *
 	return s
 }
 
-func (s *LumbermillServer) Close() error {
+func (s *server) Close() error {
 	s.shutdownChan <- struct{}{}
 	return nil
 }
 
-func (s *LumbermillServer) scheduleConnectionRecycling(after time.Duration) {
+func (s *server) scheduleConnectionRecycling(after time.Duration) {
 	for !s.isShuttingDown {
 		time.Sleep(after)
 		s.connectionCloser <- struct{}{}
 	}
 }
 
-func (s *LumbermillServer) recycleConnection(w http.ResponseWriter) {
+func (s *server) recycleConnection(w http.ResponseWriter) {
 	select {
 	case <-s.connectionCloser:
 		w.Header().Set("Connection", "close")
@@ -87,7 +87,7 @@ func (s *LumbermillServer) recycleConnection(w http.ResponseWriter) {
 	}
 }
 
-func (s *LumbermillServer) Run(connRecycle time.Duration) {
+func (s *server) Run(connRecycle time.Duration) {
 	go s.awaitShutdown()
 	go s.scheduleConnectionRecycling(connRecycle)
 
@@ -98,7 +98,7 @@ func (s *LumbermillServer) Run(connRecycle time.Duration) {
 
 // Serves a 200 OK, unless shutdown has been requested.
 // Shutting down serves a 503 since that's how ELBs implement connection draining.
-func (s *LumbermillServer) serveHealth(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveHealth(w http.ResponseWriter, r *http.Request) {
 	if s.isShuttingDown {
 		http.Error(w, "Shutting Down", 503)
 	}
@@ -116,13 +116,13 @@ func getHealthCheckClient(host string, f clientFunc) (*influx.Client, error) {
 		if err != nil {
 			log.Printf("err=%q at=getHealthCheckClient host=%q", err, host)
 			return nil, err
-		} else {
-			healthCheckClients[host] = client
-			return client, nil
 		}
-	} else {
+
+		healthCheckClients[host] = client
 		return client, nil
 	}
+
+	return client, nil
 }
 
 func checkRecentToken(client *influx.Client, token, host string, errors chan error) {
@@ -148,7 +148,9 @@ func checkRecentToken(client *influx.Client, token, host string, errors chan err
 	}
 }
 
-func (s *LumbermillServer) checkRecentTokens() []error {
+func (s *server) checkRecentTokens() []error {
+	var errSlice []error
+
 	wg := new(sync.WaitGroup)
 
 	s.recentTokensLock.RLock()
@@ -175,7 +177,6 @@ func (s *LumbermillServer) checkRecentTokens() []error {
 	wg.Wait()
 	close(errors)
 
-	errSlice := make([]error, 0)
 	for err := range errors {
 		errSlice = append(errSlice, err)
 	}
@@ -183,7 +184,7 @@ func (s *LumbermillServer) checkRecentTokens() []error {
 	return errSlice
 }
 
-func (s *LumbermillServer) serveInfluxDBHealth(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveInfluxDBHealth(w http.ResponseWriter, r *http.Request) {
 	errors := s.checkRecentTokens()
 
 	if len(errors) > 0 {
@@ -197,7 +198,7 @@ func (s *LumbermillServer) serveInfluxDBHealth(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *LumbermillServer) awaitShutdown() {
+func (s *server) awaitShutdown() {
 	<-s.shutdownChan
 	log.Printf("Shutting down.")
 	s.isShuttingDown = true

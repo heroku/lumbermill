@@ -69,7 +69,7 @@ func handleLogFmtParsingError(msg []byte, err error) {
 }
 
 // "Parse tree" from hell
-func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	s.Add(1)
 	defer s.Done()
 
