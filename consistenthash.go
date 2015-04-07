@@ -28,20 +28,20 @@ import (
 	"strconv"
 )
 
-type HashFn func(data []byte) uint32
+type hashFn func(data []byte) uint32
 
-type HashRing struct {
-	hash     HashFn
+type hashRing struct {
+	hash     hashFn
 	replicas int
 	keys     []int // Sorted
-	hashMap  map[int]*Destination
+	hashMap  map[int]*destination
 }
 
-func NewHashRing(replicas int, fn HashFn) *HashRing {
-	m := &HashRing{
+func newHashRing(replicas int, fn hashFn) *hashRing {
+	m := &hashRing{
 		replicas: replicas,
 		hash:     fn,
-		hashMap:  make(map[int]*Destination),
+		hashMap:  make(map[int]*destination),
 	}
 	if m.hash == nil {
 		// Default to fnv1a since it provides a better distribution
@@ -56,12 +56,12 @@ func NewHashRing(replicas int, fn HashFn) *HashRing {
 }
 
 // Returns true if there are no items available.
-func (m *HashRing) IsEmpty() bool {
+func (m *hashRing) IsEmpty() bool {
 	return len(m.keys) == 0
 }
 
 // Adds some keys to the hash.
-func (m *HashRing) Add(destinations ...*Destination) {
+func (m *hashRing) Add(destinations ...*destination) {
 	for _, destination := range destinations {
 		for i := 0; i < m.replicas; i++ {
 			hash := int(m.hash([]byte(strconv.Itoa(i) + destination.Name)))
@@ -73,7 +73,7 @@ func (m *HashRing) Add(destinations ...*Destination) {
 }
 
 // Gets the closest item in the hash to the provided key.
-func (m *HashRing) Get(key string) *Destination {
+func (m *hashRing) Get(key string) *destination {
 	if m.IsEmpty() {
 		return nil
 	}

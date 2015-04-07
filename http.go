@@ -23,9 +23,9 @@ var healthCheckClients = make(map[string]*influx.Client)
 type LumbermillServer struct {
 	sync.WaitGroup
 	connectionCloser chan struct{}
-	hashRing         *HashRing
+	hashRing         *hashRing
 	http             *http.Server
-	shutdownChan     ShutdownChan
+	shutdownChan     shutdownChan
 	isShuttingDown   bool
 	credStore        map[string]string
 
@@ -35,7 +35,7 @@ type LumbermillServer struct {
 	recentTokens     map[string]string
 }
 
-func NewLumbermillServer(server *http.Server, ath auth.Authenticater, hashRing *HashRing) *LumbermillServer {
+func NewLumbermillServer(server *http.Server, ath auth.Authenticater, hashRing *hashRing) *LumbermillServer {
 	s := &LumbermillServer{
 		connectionCloser: make(chan struct{}),
 		shutdownChan:     make(chan struct{}),

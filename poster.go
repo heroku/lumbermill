@@ -12,7 +12,7 @@ import (
 var deliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 type Poster struct {
-	destination          *Destination
+	destination          *destination
 	name                 string
 	influxClient         *influx.Client
 	pointsSuccessCounter metrics.Counter
@@ -21,7 +21,7 @@ type Poster struct {
 	pointsFailureTime    metrics.Timer
 }
 
-func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
+func NewPoster(clientConfig influx.ClientConfig, name string, destination *destination, waitGroup *sync.WaitGroup) *Poster {
 	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {

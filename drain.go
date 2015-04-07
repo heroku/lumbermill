@@ -231,7 +231,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 				// unknown
 				default:
 					unknownHerokuLinesCounter.Inc(1)
-					if Debug {
+					if debug {
 						log.Printf("Unknown Heroku Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 							header.PrivalVersion,
 							header.Time,
@@ -248,7 +248,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 		// non heroku lines
 		default:
 			unknownUserLinesCounter.Inc(1)
-			if Debug {
+			if debug {
 				log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 					header.PrivalVersion,
 					header.Time,

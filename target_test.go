@@ -14,7 +14,7 @@ func TestTargetWithMultipleAuth(t *testing.T) {
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user1", "pass1")
 	ba.AddPrincipal("user2", "pass2")
-	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
+	server := NewLumbermillServer(&http.Server{}, ba, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 
@@ -37,7 +37,7 @@ func TestTargetWithMultiplePasswords(t *testing.T) {
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user", "pass1")
 	ba.AddPrincipal("user", "pass2")
-	server := NewLumbermillServer(&http.Server{}, ba, NewHashRing(1, nil))
+	server := NewLumbermillServer(&http.Server{}, ba, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 
@@ -95,7 +95,7 @@ func TestTargetWithoutId(t *testing.T) {
 }
 
 func TestTargetWithoutRing(t *testing.T) {
-	server := NewLumbermillServer(&http.Server{}, auth.AnyOrNoAuth{}, NewHashRing(1, nil))
+	server := NewLumbermillServer(&http.Server{}, auth.AnyOrNoAuth{}, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
