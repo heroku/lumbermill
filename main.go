@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -45,13 +44,10 @@ func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
 		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
 		IsSecure: true,
 		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
-				ResponseHeaderTimeout: 5 * time.Second,
-				Dial: func(network, address string) (net.Conn, error) {
-					return net.DialTimeout(network, address, 5*time.Second)
-				},
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
 			},
-			Timeout: 10 * time.Second,
+			Timeout: 20 * time.Second,
 		},
 	}
 }

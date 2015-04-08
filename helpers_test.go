@@ -45,3 +45,11 @@ func splitURL(url string) (string, int) {
 	port, _ := strconv.ParseInt(bits[1], 10, 16)
 	return bits[0], int(port)
 }
+
+func extractHostPort(url string) string {
+	urlBits := strings.Split(url, "//")
+	if len(urlBits) > 1 {
+		return urlBits[1]
+	}
+	panic("Unable to parse URL into host:port")
+}
