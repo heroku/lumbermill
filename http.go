@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -107,12 +106,12 @@ func (s *LumbermillServer) serveHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func getHealthCheckClient(host string, skipVerify bool) (*influx.Client, error) {
+func getHealthCheckClient(host string, f clientFunc) (*influx.Client, error) {
 	healthCheckClientsLock.Lock()
 	defer healthCheckClientsLock.Unlock()
 
 	if client, exists := healthCheckClients[host]; !exists {
-		clientConfig := createInfluxDBClient(host, skipVerify)
+		clientConfig := createInfluxDBClient(host, f)
 		client, err := influx.NewClient(&clientConfig)
 		if err != nil {
 			log.Printf("err=%q at=getHealthCheckClient host=%q", err, host)
@@ -164,7 +163,7 @@ func (s *LumbermillServer) checkRecentTokens() []error {
 	for host, token := range tokenMap {
 		wg.Add(1)
 		go func(token, host string) {
-			client, err := getHealthCheckClient(host, os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+			client, err := getHealthCheckClient(host, nil)
 			if err != nil {
 				return
 			}

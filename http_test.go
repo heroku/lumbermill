@@ -1,9 +1,17 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+)
 
 func TestInfluxDBHealth_HappyPath(t *testing.T) {
-	influxDB := setupInfluxDBTestServer(nil)
+	fixedContent := fmt.Sprintf(`[{"name":"Throughput.10m.router.blargh","columns":["time","sequence_number","count","status"],"points":[[%d,2,1,201]]}]`,
+		time.Now().Unix())
+
+	influxDB := setupInfluxDBTestServer(newFixedResultHandler("application/json", fixedContent))
 	defer influxDB.Close()
 
 	errors := make(chan error, 100)
@@ -11,7 +19,7 @@ func TestInfluxDBHealth_HappyPath(t *testing.T) {
 	token := "foo"
 	host := extractHostPort(influxDB.URL)
 
-	client, err := getHealthCheckClient(host, true)
+	client, err := getHealthCheckClient(host, newTestClientFunc)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -24,25 +32,45 @@ func TestInfluxDBHealth_HappyPath(t *testing.T) {
 	}
 }
 
-func TestInfluxDBHealth_InvalidResponse(t *testing.T) {
-	influxDB := setupInfluxDBTestServer(nil)
-	defer influxDB.Close()
+var invalidInputHandlers = map[string]http.HandlerFunc{
+	"Returned Invalid JSON": newFixedResultHandler("application/json", "input"),
 
-	token := "foo"
-	host := extractHostPort(influxDB.URL)
+	"Stale Data": newFixedResultHandler("application/json", `[{"name":"Throughput.10m.router.blargh","columns":["time","sequence_number","count","status"],"points":[[1920,2,1,201]]}]`),
 
-	client, err := getHealthCheckClient(host, true)
-	if err != nil {
-		t.Fatalf(err.Error())
+	"Timestamp NaN": newFixedResultHandler("application/json", `[{"name":"Throughput.10m.router.blargh","columns":["time","sequence_number","count","status"],"points":[["foo",2,1,201]]}]`),
+
+	"Invalid Content-Type": newFixedResultHandler("text/html", "<html></html>"),
+
+	"Invalid Response": newFixedStatusHandler(400),
+
+	"Client Timeout": newSleepyHandler(2 * defaultTestClientTimeout),
+}
+
+func TestInfluxDBHealth_InvalidInputs(t *testing.T) {
+	for testName, handler := range invalidInputHandlers {
+		influxDB := setupInfluxDBTestServer(handler)
+		token := "foo"
+		host := extractHostPort(influxDB.URL)
+
+		client, err := getHealthCheckClient(host, newTestClientFunc)
+		if err != nil {
+			influxDB.Close()
+			t.Fatalf("test=%q msg=\"Error while getting health check\" client err=%q", err)
+		}
+
+		errors := make(chan error, 100)
+		checkRecentToken(client, token, host, errors)
+		close(errors)
+		influxDB.Close()
+
+		errorCnt := 0
+		for err := range errors {
+			t.Logf("test=%q expected_error=%q", testName, err)
+			errorCnt++
+		}
+
+		if errorCnt == 0 {
+			t.Errorf("err=\"Expected error(s) not found\" test=%q", testName)
+		}
 	}
-
-	errors := make(chan error, 100)
-	checkRecentToken(client, token, host, errors)
-	close(errors)
-
-	for _ = range errors {
-		return
-	}
-
-	t.Errorf("Expected error not found.")
 }
