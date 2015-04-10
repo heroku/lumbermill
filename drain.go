@@ -54,7 +54,7 @@ func dynoType(what string) string {
 // This, essentially, samples the incoming tokens for the purposes of health checking
 // live tokens. Rather than use a random number generator, or a global counter, we
 // let the scheduler do the sampling for us.
-func (s *LumbermillServer) maybeUpdateRecentTokens(host, id string) {
+func (s *server) maybeUpdateRecentTokens(host, id string) {
 	if atomic.CompareAndSwapInt32(s.tokenLock, 0, 1) {
 		s.recentTokensLock.Lock()
 		s.recentTokens[host] = id

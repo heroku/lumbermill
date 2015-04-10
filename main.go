@@ -64,7 +64,7 @@ func createClients(hostlist string, f clientFunc) []influx.ClientConfig {
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string, skipVerify bool) (*hashRing, []*destination, *sync.WaitGroup) {
+func createMessageRoutes(hostlist string, f clientFunc) (*hashRing, []*destination, *sync.WaitGroup) {
 	var destinations []*destination
 	posterGroup := new(sync.WaitGroup)
 	hashRing := newHashRing(hashRingReplication, nil)

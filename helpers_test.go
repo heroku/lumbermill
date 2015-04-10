@@ -57,7 +57,7 @@ func setupInfluxDBTestServer(handler http.Handler) *httptest.Server {
 }
 
 func setupLumbermillTestServer(influxHosts, creds string) (*server, *httptest.Server, []*destination, *sync.WaitGroup) {
-	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, true)
+	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, newTestClientFunc)
 	testServer := httptest.NewServer(nil)
 	lumbermill := newServer(testServer.Config, auth.AnyOrNoAuth{}, hashRing)
 	return lumbermill, testServer, destinations, waitGroup
