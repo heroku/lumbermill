@@ -166,7 +166,7 @@ func (s *server) checkRecentTokens() []error {
 	for host, token := range tokenMap {
 		wg.Add(1)
 		go func(token, host string) {
-			client, err := getHealthCheckClient(host, nil)
+			client, err := getHealthCheckClient(host, newClientFunc)
 			if err != nil {
 				return
 			}
