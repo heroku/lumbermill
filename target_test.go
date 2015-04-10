@@ -112,7 +112,7 @@ func TestTargetWithoutRing(t *testing.T) {
 }
 
 func TestTarget(t *testing.T) {
-	hashRing, _, _ := createMessageRoutes("null", true)
+	hashRing, _, _ := createMessageRoutes("null", newTestClientFunc)
 	server := NewLumbermillServer(&http.Server{}, auth.AnyOrNoAuth{}, hashRing)
 
 	recorder := httptest.NewRecorder()

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
@@ -47,6 +48,19 @@ var (
 func dynoType(what string) string {
 	s := strings.Split(what, ".")
 	return s[0]
+}
+
+// Lock, or don't do any work, but don't block.
+// This, essentially, samples the incoming tokens for the purposes of health checking
+// live tokens. Rather than use a random number generator, or a global counter, we
+// let the scheduler do the sampling for us.
+func (s *LumbermillServer) maybeUpdateRecentTokens(host, id string) {
+	if atomic.CompareAndSwapInt32(s.tokenLock, 0, 1) {
+		s.recentTokensLock.Lock()
+		s.recentTokens[host] = id
+		s.recentTokensLock.Unlock()
+		atomic.StoreInt32(s.tokenLock, 0)
+	}
 }
 
 func handleLogFmtParsingError(msg []byte, err error) {
@@ -164,6 +178,8 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 				// Dyno log-runtime-metrics memory messages
 				case bytes.Contains(msg, dynoMemMsgSentinel):
+					s.maybeUpdateRecentTokens(destination.Name, id)
+
 					dynoMemLinesCounter.Inc(1)
 					dm := dynoMemMsg{}
 					err := logfmt.Unmarshal(msg, &dm)
@@ -193,6 +209,8 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					// Dyno log-runtime-metrics load messages
 				case bytes.Contains(msg, dynoLoadMsgSentinel):
+					s.maybeUpdateRecentTokens(destination.Name, id)
+
 					dynoLoadLinesCounter.Inc(1)
 					dm := dynoLoadMsg{}
 					err := logfmt.Unmarshal(msg, &dm)

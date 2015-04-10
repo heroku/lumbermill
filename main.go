@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,10 +20,13 @@ import (
 
 type ShutdownChan chan struct{}
 
+type clientFunc func() *http.Client
+
 const (
 	PointChannelCapacity = 500000
 	HashRingReplication  = 46
 	PostersPerHost       = 6
+	defaultClientTimeout = 20 * time.Second
 )
 
 var (
@@ -37,45 +39,37 @@ func (s ShutdownChan) Close() error {
 	return nil
 }
 
-func createInfluxDBClient(host string, skipVerify bool) influx.ClientConfig {
+func createInfluxDBClient(host string, f clientFunc) influx.ClientConfig {
 	return influx.ClientConfig{
-		Host:     host,                       //"influxor.ssl.edward.herokudev.com:8086",
-		Username: os.Getenv("INFLUXDB_USER"), //"test",
-		Password: os.Getenv("INFLUXDB_PWD"),  //"tester",
-		Database: os.Getenv("INFLUXDB_NAME"), //"ingress",
-		IsSecure: true,
-		HttpClient: &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
-				ResponseHeaderTimeout: 5 * time.Second,
-				Dial: func(network, address string) (net.Conn, error) {
-					return net.DialTimeout(network, address, 5*time.Second)
-				},
-			},
-			Timeout: 10 * time.Second,
-		},
+		Host:       host,                       //"influxor.ssl.edward.herokudev.com:8086",
+		Username:   os.Getenv("INFLUXDB_USER"), //"test",
+		Password:   os.Getenv("INFLUXDB_PWD"),  //"tester",
+		Database:   os.Getenv("INFLUXDB_NAME"), //"ingress",
+		IsSecure:   true,
+		HttpClient: f(),
 	}
 }
 
 // Creates clients which deliver to InfluxDB
-func createClients(hostlist string, skipVerify bool) []influx.ClientConfig {
+func createClients(hostlist string, f clientFunc) []influx.ClientConfig {
 	var clients []influx.ClientConfig
 
 	for _, host := range strings.Split(hostlist, ",") {
 		host = strings.Trim(host, "\t ")
 		if host != "" {
-			clients = append(clients, createInfluxDBClient(host, skipVerify))
+			clients = append(clients, createInfluxDBClient(host, f))
 		}
 	}
 	return clients
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string, skipVerify bool) (*HashRing, []*Destination, *sync.WaitGroup) {
+func createMessageRoutes(hostlist string, f clientFunc) (*HashRing, []*Destination, *sync.WaitGroup) {
 	var destinations []*Destination
 	posterGroup := new(sync.WaitGroup)
 	hashRing := NewHashRing(HashRingReplication, nil)
 
-	influxClients := createClients(hostlist, skipVerify)
+	influxClients := createClients(hostlist, f)
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
 		destination := NewDestination("null", PointChannelCapacity)
@@ -121,8 +115,17 @@ func awaitShutdown(shutdownChan ShutdownChan, server *LumbermillServer, posterGr
 	log.Printf("Shutdown complete.")
 }
 
+func newClientFunc() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
+		},
+		Timeout: defaultClientTimeout,
+	}
+}
+
 func main() {
-	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), os.Getenv("INFLUXDB_SKIP_VERIFY") == "true")
+	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), newClientFunc)
 
 	if os.Getenv("LIBRATO_TOKEN") != "" {
 		go librato.Librato(

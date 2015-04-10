@@ -4,9 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
-	"time"
 
 	lpxgen "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/apg/lpxgen"
 	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
@@ -16,8 +14,8 @@ func TestLumbermillDrain(t *testing.T) {
 	sendBatchCount := int64(100)
 	sendPointPerBatchCount := int64(10)
 
-	influxdb := setupInfluxDBTestServer(&sleepyHandler{2 * time.Second})
-	influxHost := strings.TrimPrefix(influxdb.URL, "https://")
+	influxdb := setupInfluxDBTestServer(newSleepyHandler(defaultTestClientTimeout / 4))
+	influxHost := extractHostPort(influxdb.URL)
 
 	// snapshot old values
 	routerErrorsBefore := routerErrorLinesCounter.Count()
