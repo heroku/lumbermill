@@ -27,7 +27,7 @@ func TestHashing(t *testing.T) {
 
 	// Override the hash function to return easier to reason about values. Assumes
 	// the keys can be converted to an integer.
-	hash := NewHashRing(3, func(key []byte) uint32 {
+	hash := newHashRing(3, func(key []byte) uint32 {
 		i, err := strconv.Atoi(string(key))
 		if err != nil {
 			panic(err)
@@ -35,16 +35,16 @@ func TestHashing(t *testing.T) {
 		return uint32(i)
 	})
 
-	two := NewDestination("2", 1)
-	four := NewDestination("4", 1)
-	six := NewDestination("6", 1)
-	eight := NewDestination("8", 1)
+	two := newDestination("2", 1)
+	four := newDestination("4", 1)
+	six := newDestination("6", 1)
+	eight := newDestination("8", 1)
 
 	// Given the above hash function, this will give replicas with "hashes":
 	// 2, 4, 6, 12, 14, 16, 22, 24, 26
 	hash.Add(six, four, two)
 
-	testCases := map[string]*Destination{
+	testCases := map[string]*destination{
 		"2":  two,
 		"11": two,
 		"23": four,
@@ -72,15 +72,15 @@ func TestHashing(t *testing.T) {
 }
 
 func TestConsistency(t *testing.T) {
-	hash1 := NewHashRing(1, crc32.ChecksumIEEE)
-	hash2 := NewHashRing(1, crc32.ChecksumIEEE)
+	hash1 := newHashRing(1, crc32.ChecksumIEEE)
+	hash2 := newHashRing(1, crc32.ChecksumIEEE)
 
-	ben := NewDestination("Ben", 1)
-	becky := NewDestination("Becky", 1)
-	bill := NewDestination("Bill", 1)
-	bob := NewDestination("Bob", 1)
-	bobby := NewDestination("Bobby", 1)
-	bonny := NewDestination("Bonny", 1)
+	ben := newDestination("Ben", 1)
+	becky := newDestination("Becky", 1)
+	bill := newDestination("Bill", 1)
+	bob := newDestination("Bob", 1)
+	bobby := newDestination("Bobby", 1)
+	bonny := newDestination("Bonny", 1)
 
 	hash1.Add(bill, bob, bonny)
 	hash2.Add(bob, bonny, bill)

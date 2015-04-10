@@ -7,7 +7,7 @@ import (
 )
 
 // GET /target/<opaque id>
-func (s *LumbermillServer) serveTarget(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveTarget(w http.ResponseWriter, r *http.Request) {
 	parts := strings.SplitN(r.URL.Path, "/", 3)
 	if len(parts) != 3 || parts[2] == "" {
 		w.WriteHeader(http.StatusBadRequest)

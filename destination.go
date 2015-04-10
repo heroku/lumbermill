@@ -7,15 +7,15 @@ import (
 )
 
 // A channel of points and related sampling
-type Destination struct {
+type destination struct {
 	Name       string
-	points     chan Point
+	points     chan point
 	depthGauge metrics.Gauge
 }
 
-func NewDestination(name string, chanCap int) *Destination {
-	destination := &Destination{Name: name}
-	destination.points = make(chan Point, chanCap)
+func newDestination(name string, chanCap int) *destination {
+	destination := &destination{Name: name}
+	destination.points = make(chan point, chanCap)
 	destination.depthGauge = metrics.GetOrRegisterGauge(
 		"lumbermill.points.pending."+name,
 		metrics.DefaultRegistry,
@@ -27,7 +27,7 @@ func NewDestination(name string, chanCap int) *Destination {
 }
 
 // Update depth guages every so often
-func (d *Destination) Sample(every time.Duration) {
+func (d *destination) Sample(every time.Duration) {
 	for {
 		time.Sleep(every)
 		d.depthGauge.Update(int64(len(d.points)))
@@ -35,7 +35,7 @@ func (d *Destination) Sample(every time.Duration) {
 }
 
 // Post the point, or increment a counter if channel is full
-func (d *Destination) PostPoint(point Point) {
+func (d *destination) PostPoint(point point) {
 	select {
 	case d.points <- point:
 	default:
@@ -43,7 +43,7 @@ func (d *Destination) PostPoint(point Point) {
 	}
 }
 
-func (d *Destination) Close() error {
+func (d *destination) Close() error {
 	close(d.points)
 	return nil
 }

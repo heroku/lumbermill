@@ -54,7 +54,7 @@ func dynoType(what string) string {
 // This, essentially, samples the incoming tokens for the purposes of health checking
 // live tokens. Rather than use a random number generator, or a global counter, we
 // let the scheduler do the sampling for us.
-func (s *LumbermillServer) maybeUpdateRecentTokens(host, id string) {
+func (s *server) maybeUpdateRecentTokens(host, id string) {
 	if atomic.CompareAndSwapInt32(s.tokenLock, 0, 1) {
 		s.recentTokensLock.Lock()
 		s.recentTokens[host] = id
@@ -69,7 +69,7 @@ func handleLogFmtParsingError(msg []byte, err error) {
 }
 
 // "Parse tree" from hell
-func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	s.Add(1)
 	defer s.Done()
 
@@ -139,7 +139,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 						handleLogFmtParsingError(msg, err)
 						continue
 					}
-					destination.PostPoint(Point{id, EventsRouter, []interface{}{timestamp, re.Code}})
+					destination.PostPoint(point{id, routerEvent, []interface{}{timestamp, re.Code}})
 
 				// If the app is blank (not pushed) we don't care
 				// do nothing atm, increment a counter
@@ -156,7 +156,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					destination.PostPoint(Point{id, Router, []interface{}{timestamp, rm.Status, rm.Service}})
+					destination.PostPoint(point{id, routerRequest, []interface{}{timestamp, rm.Status, rm.Service}})
 				}
 
 				// Non router logs, so either dynos, runtime, etc
@@ -173,7 +173,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					what := string(lp.Header().Procid)
 					destination.PostPoint(
-						Point{id, EventsDyno, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
+						point{id, dynoEvents, []interface{}{timestamp, what, "R", de.Code, string(msg), dynoType(what)}},
 					)
 
 				// Dyno log-runtime-metrics memory messages
@@ -189,9 +189,9 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					if dm.Source != "" {
 						destination.PostPoint(
-							Point{
+							point{
 								id,
-								DynoMem,
+								dynoMem,
 								[]interface{}{
 									timestamp,
 									dm.Source,
@@ -220,9 +220,9 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 					}
 					if dm.Source != "" {
 						destination.PostPoint(
-							Point{
+							point{
 								id,
-								DynoLoad,
+								dynoLoad,
 								[]interface{}{timestamp, dm.Source, dm.LoadAvg1Min, dm.LoadAvg5Min, dm.LoadAvg15Min, dynoType(dm.Source)},
 							},
 						)
@@ -231,7 +231,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 				// unknown
 				default:
 					unknownHerokuLinesCounter.Inc(1)
-					if Debug {
+					if debug {
 						log.Printf("Unknown Heroku Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 							header.PrivalVersion,
 							header.Time,
@@ -248,7 +248,7 @@ func (s *LumbermillServer) serveDrain(w http.ResponseWriter, r *http.Request) {
 		// non heroku lines
 		default:
 			unknownUserLinesCounter.Inc(1)
-			if Debug {
+			if debug {
 				log.Printf("Unknown User Line - Header: PRI: %s, Time: %s, Hostname: %s, Name: %s, ProcId: %s, MsgId: %s - Body: %s",
 					header.PrivalVersion,
 					header.Time,

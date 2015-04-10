@@ -1,14 +1,14 @@
 package main
 
 // Encodes eries Type information
-type SeriesType int
+type seriesType int
 
 const (
-	Router SeriesType = iota
-	EventsRouter
-	DynoMem
-	DynoLoad
-	EventsDyno
+	routerRequest seriesType = iota
+	routerEvent
+	dynoMem
+	dynoLoad
+	dynoEvents
 	numSeries
 )
 
@@ -24,21 +24,21 @@ var (
 	seriesNames = []string{"router", "events.router", "dyno.mem", "dyno.load", "events.dyno"}
 )
 
-func (st SeriesType) Name() string {
+func (st seriesType) Name() string {
 	return seriesNames[st]
 }
 
-func (st SeriesType) Columns() []string {
+func (st seriesType) Columns() []string {
 	return seriesColumns[st]
 }
 
 // Holds data around a data point
-type Point struct {
+type point struct {
 	Token  string
-	Type   SeriesType
+	Type   seriesType
 	Points []interface{}
 }
 
-func (p Point) SeriesName() string {
+func (p point) SeriesName() string {
 	return p.Type.Name() + "." + p.Token
 }

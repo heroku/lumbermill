@@ -11,8 +11,8 @@ import (
 
 var deliverySizeHistogram = metrics.GetOrRegisterHistogram("lumbermill.poster.deliver.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
-type Poster struct {
-	destination          *Destination
+type poster struct {
+	destination          *destination
 	name                 string
 	influxClient         *influx.Client
 	pointsSuccessCounter metrics.Counter
@@ -21,14 +21,14 @@ type Poster struct {
 	pointsFailureTime    metrics.Timer
 }
 
-func NewPoster(clientConfig influx.ClientConfig, name string, destination *Destination, waitGroup *sync.WaitGroup) *Poster {
+func newPoster(clientConfig influx.ClientConfig, name string, destination *destination, waitGroup *sync.WaitGroup) *poster {
 	influxClient, err := influx.NewClient(&clientConfig)
 
 	if err != nil {
 		panic(err)
 	}
 
-	return &Poster{
+	return &poster{
 		destination:          destination,
 		name:                 name,
 		influxClient:         influxClient,
@@ -39,14 +39,14 @@ func NewPoster(clientConfig influx.ClientConfig, name string, destination *Desti
 	}
 }
 
-func makeSeries(p Point) *influx.Series {
+func makeSeries(p point) *influx.Series {
 	series := &influx.Series{Points: make([][]interface{}, 0)}
 	series.Name = p.SeriesName()
 	series.Columns = seriesColumns[p.Type]
 	return series
 }
 
-func (p *Poster) Run() {
+func (p *poster) Run() {
 	var last bool
 	var delivery map[string]*influx.Series
 
@@ -59,7 +59,7 @@ func (p *Poster) Run() {
 	}
 }
 
-func (p *Poster) nextDelivery(timeout *time.Ticker) (delivery map[string]*influx.Series, last bool) {
+func (p *poster) nextDelivery(timeout *time.Ticker) (delivery map[string]*influx.Series, last bool) {
 	delivery = make(map[string]*influx.Series)
 	for {
 		select {
@@ -81,7 +81,7 @@ func (p *Poster) nextDelivery(timeout *time.Ticker) (delivery map[string]*influx
 	}
 }
 
-func (p *Poster) deliver(allSeries map[string]*influx.Series) {
+func (p *poster) deliver(allSeries map[string]*influx.Series) {
 	pointCount := 0
 	seriesGroup := make([]*influx.Series, 0, len(allSeries))
 

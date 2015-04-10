@@ -1,11 +1,11 @@
 package main
 
 type nullPoster struct {
-	destination *Destination
+	destination *destination
 	name        string
 }
 
-func newNullPoster(destination *Destination) *nullPoster {
+func newNullPoster(destination *destination) *nullPoster {
 	return &nullPoster{
 		destination: destination,
 		name:        "null",

@@ -18,23 +18,23 @@ import (
 	librato "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics/librato"
 )
 
-type ShutdownChan chan struct{}
+type shutdownChan chan struct{}
 
 type clientFunc func() *http.Client
 
 const (
-	PointChannelCapacity = 500000
-	HashRingReplication  = 46
-	PostersPerHost       = 6
 	defaultClientTimeout = 20 * time.Second
+	pointChannelCapacity = 500000
+	hashRingReplication  = 46
+	postersPerHost       = 6
 )
 
 var (
 	connectionCloser = make(chan struct{})
-	Debug            = os.Getenv("DEBUG") == "true"
+	debug            = os.Getenv("DEBUG") == "true"
 )
 
-func (s ShutdownChan) Close() error {
+func (s shutdownChan) Close() error {
 	s <- struct{}{}
 	return nil
 }
@@ -64,15 +64,15 @@ func createClients(hostlist string, f clientFunc) []influx.ClientConfig {
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string, f clientFunc) (*HashRing, []*Destination, *sync.WaitGroup) {
-	var destinations []*Destination
+func createMessageRoutes(hostlist string, f clientFunc) (*hashRing, []*destination, *sync.WaitGroup) {
+	var destinations []*destination
 	posterGroup := new(sync.WaitGroup)
-	hashRing := NewHashRing(HashRingReplication, nil)
+	hashRing := newHashRing(hashRingReplication, nil)
 
 	influxClients := createClients(hostlist, f)
 	if len(influxClients) == 0 {
 		//No backends, so blackhole things
-		destination := NewDestination("null", PointChannelCapacity)
+		destination := newDestination("null", pointChannelCapacity)
 		hashRing.Add(destination)
 		destinations = append(destinations, destination)
 		poster := newNullPoster(destination)
@@ -80,11 +80,11 @@ func createMessageRoutes(hostlist string, f clientFunc) (*HashRing, []*Destinati
 	} else {
 		for _, client := range influxClients {
 			name := client.Host
-			destination := NewDestination(name, PointChannelCapacity)
+			destination := newDestination(name, pointChannelCapacity)
 			hashRing.Add(destination)
 			destinations = append(destinations, destination)
-			for p := 0; p < PostersPerHost; p++ {
-				poster := NewPoster(client, name, destination, posterGroup)
+			for p := 0; p < postersPerHost; p++ {
+				poster := newPoster(client, name, destination, posterGroup)
 				posterGroup.Add(1)
 				go func() {
 					poster.Run()
@@ -107,7 +107,7 @@ func awaitSignals(ss ...io.Closer) {
 	}
 }
 
-func awaitShutdown(shutdownChan ShutdownChan, server *LumbermillServer, posterGroup *sync.WaitGroup) {
+func awaitShutdown(shutdownChan shutdownChan, server *server, posterGroup *sync.WaitGroup) {
 	<-shutdownChan
 	log.Printf("waiting for inflight requests to finish.")
 	server.Wait()
@@ -146,8 +146,8 @@ func main() {
 		log.Fatalf("Unable to parse credentials from CRED_STORE=%q: err=%q", os.Getenv("CRED_STORE"), err)
 	}
 
-	shutdownChan := make(ShutdownChan)
-	server := NewLumbermillServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
+	shutdownChan := make(shutdownChan)
+	server := newServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
 
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)
