@@ -107,14 +107,12 @@ func (s *server) serveHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func getHealthCheckClient(host string, f clientFunc) (*influx.Client, error) {
-	var client *influx.Client
-	var exists bool
 	healthCheckClientsLock.Lock()
 	defer healthCheckClientsLock.Unlock()
 
-	if client, exists = healthCheckClients[host]; !exists {
+	client, exists := healthCheckClients[host]
+	if !exists {
 		var err error
-
 		clientConfig := createInfluxDBClient(host, f)
 		client, err = influx.NewClient(&clientConfig)
 		if err != nil {
@@ -123,7 +121,6 @@ func getHealthCheckClient(host string, f clientFunc) (*influx.Client, error) {
 		}
 
 		healthCheckClients[host] = client
-		return client, nil
 	}
 
 	return client, nil
