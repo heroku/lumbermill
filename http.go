@@ -13,8 +13,8 @@ import (
 
 var influxDbStaleTimeout = 24 * time.Minute // Would be nice to make this smaller, but it lags due to continuous queries.
 var influxDbSeriesCheckQueries = []string{
-	"select * from MaxMean1mLoad.10m.dyno.dyno.load.%s limit 1",
-	"select * from MaxMeanRssSwapMemory.10m.dyno.mem.%s limit 1",
+	"select * from dyno.load.%s limit 1",
+	"select * from dyno.mem.%s limit 1",
 }
 
 var healthCheckClientsLock = new(sync.Mutex)
