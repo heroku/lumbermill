@@ -11,7 +11,6 @@
     ],
     "success_url": "https://github.com/heroku/lumbermill#add-the-drain-to-an-app",
     "env": {
-        "BUILDPACK_URL": "https://github.com/kr/heroku-buildpack-go.git",
         "INFLUXDB_HOSTS": {
             "description": "InfluxDB host:port"
         },
