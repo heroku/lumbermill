@@ -20,9 +20,9 @@ var (
 	keyStatus    = []byte("status")
 	keySock      = []byte("sock")
 	keyBytes     = []byte("bytes")
-	keyCodeH     = []byte("code=H")
-	keyCodeBlank = []byte("code=blank-app")
-	keyDescBlank = []byte("desc=\"Blank app\"")
+	keyCodeH     = []byte(" code=H")
+	keyCodeBlank = []byte(" code=blank-app")
+	keyDescBlank = []byte(" desc=\"Blank app\"")
 )
 
 // at=info method=GET path=/check?metric=railgun.accepting:sum:max,railgun.running:sum:max&0
