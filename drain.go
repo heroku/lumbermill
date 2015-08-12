@@ -139,9 +139,13 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 						handleLogFmtParsingError(msg, err)
 						continue
 					}
+
+					// Track the breakout of different error types.
+					metrics.GetOrRegisterCounter("lumbermill.lines.router.errors."+re.Code, metrics.DefaultRegistry).Inc(1)
+
 					destination.PostPoint(point{id, routerEvent, []interface{}{timestamp, re.Code}})
 
-				// If the app is blank (not pushed) we don't care
+					// If the app is blank (not pushed) we don't care
 				// do nothing atm, increment a counter
 				case bytes.Contains(msg, keyCodeBlank), bytes.Contains(msg, keyDescBlank):
 					routerBlankLinesCounter.Inc(1)
