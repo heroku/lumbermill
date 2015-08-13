@@ -142,8 +142,8 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					// Track the breakout of different error types.
 					metrics.GetOrRegisterCounter("lumbermill.lines.router.errors."+re.Code, metrics.DefaultRegistry).Inc(1)
-					if re.Code == "H99" {
-						log.Printf("debug=error.H99 %s", msg)
+					if re.Code == "H27" {
+						log.Printf("debug=error.H27 %s", msg)
 					}
 
 					destination.PostPoint(point{id, routerEvent, []interface{}{timestamp, re.Code}})
