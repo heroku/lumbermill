@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,8 @@ var (
 	TokenPrefix = []byte("t.")
 	// Heroku contains the prefix for heroku tokens.
 	Heroku = []byte("heroku")
+
+	debugToken = os.Getenv("DEBUG_TOKEN")
 
 	// go-metrics Instruments
 	wrongMethodErrorCounter    = metrics.GetOrRegisterCounter("lumbermill.errors.drain.wrong.method", metrics.DefaultRegistry)
@@ -142,8 +145,9 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 					// Track the breakout of different error types.
 					metrics.GetOrRegisterCounter("lumbermill.lines.router.errors."+re.Code, metrics.DefaultRegistry).Inc(1)
-					if re.Code == "H27" {
-						log.Printf("debug=error.H27 %s", msg)
+
+					if debugToken != "" && id == debugToken {
+						log.Printf("debug=error.%s %s", re.Code, msg)
 					}
 
 					destination.PostPoint(point{id, routerEvent, []interface{}{timestamp, re.Code}})
