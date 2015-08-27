@@ -84,7 +84,7 @@ func createMessageRoutes(hostlist string, f clientFunc) (*hashRing, []*destinati
 			hashRing.Add(destination)
 			destinations = append(destinations, destination)
 			for p := 0; p < postersPerHost; p++ {
-				poster := newPoster(client, name, destination, posterGroup)
+				poster := newInfluxDBPoster(client, name, destination, posterGroup)
 				posterGroup.Add(1)
 				go func() {
 					poster.Run()
