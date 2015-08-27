@@ -78,7 +78,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 			Name:   fmt.Sprintf("%s.%d", name, p.Points[1]), // status code
 			Source: source,
 			When:   p.Points[0].(int64), // time
-			Value:  p.Points[2].(int64), // service
+			Value:  p.Points[2].(int),   // service
 		})
 	case routerEvent:
 		payload.Gauges = append(payload.Gauges, libratoMetric{
@@ -94,7 +94,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 				Name:   name + "." + dynoMem.Columns()[i],
 				Source: sourceDyno,
 				When:   p.Points[0].(int64),
-				Value:  p.Points[i].(int64),
+				Value:  p.Points[i].(float64),
 			})
 		}
 	case dynoLoad:
@@ -104,7 +104,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 				Name:   name + "." + dynoLoad.Columns()[i],
 				Source: sourceDyno,
 				When:   p.Points[0].(int64),
-				Value:  p.Points[i].(int64),
+				Value:  p.Points[i].(float64),
 			})
 		}
 
