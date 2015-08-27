@@ -79,15 +79,15 @@ func pointsToPayload(p point, payload *libratoPayload) {
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   fmt.Sprintf("%s.%d", name, p.Points[1]), // status code
 			Source: source,
-			When:   tstamp,
-			Value:  p.Points[2].(int), // service
+			//			When:   tstamp,
+			Value: p.Points[2].(int), // service
 		})
 	case routerEvent:
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   name + "." + p.Points[1].(string),
 			Source: source,
-			When:   tstamp,
-			Value:  1,
+			//			When:   tstamp,
+			Value: 1,
 		})
 	case dynoMem:
 		sourceDyno := source + "." + p.Points[1].(string)
@@ -95,8 +95,8 @@ func pointsToPayload(p point, payload *libratoPayload) {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoMem.Columns()[i],
 				Source: sourceDyno,
-				When:   tstamp,
-				Value:  p.Points[i].(float64),
+				//				When:   tstamp,
+				Value: p.Points[i].(float64),
 			})
 		}
 	case dynoLoad:
@@ -105,8 +105,8 @@ func pointsToPayload(p point, payload *libratoPayload) {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoLoad.Columns()[i],
 				Source: sourceDyno,
-				When:   tstamp,
-				Value:  p.Points[i].(float64),
+				//				When:   tstamp,
+				Value: p.Points[i].(float64),
 			})
 		}
 
@@ -114,8 +114,8 @@ func pointsToPayload(p point, payload *libratoPayload) {
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   fmt.Sprintf("%s.%s.%d", name, p.Points[2], p.Points[3]),
 			Source: source,
-			When:   tstamp,
-			Value:  1,
+			//			When:   tstamp,
+			Value: 1,
 		})
 	}
 }
