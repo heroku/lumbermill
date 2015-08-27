@@ -72,19 +72,21 @@ func pointsToPayload(p point, payload *libratoPayload) {
 	name := "lumbrato." + p.Type.Name()
 	source := "lumbrato." + md5sum([]byte(p.Token))
 
+	tstamp := p.Points[0].(int64) / 1000
+
 	switch p.Type {
 	case routerRequest:
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   fmt.Sprintf("%s.%d", name, p.Points[1]), // status code
 			Source: source,
-			When:   p.Points[0].(int64), // time
-			Value:  p.Points[2].(int),   // service
+			When:   tstamp,
+			Value:  p.Points[2].(int), // service
 		})
 	case routerEvent:
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   name + "." + p.Points[1].(string),
 			Source: source,
-			When:   p.Points[0].(int64),
+			When:   tstamp,
 			Value:  1,
 		})
 	case dynoMem:
@@ -93,7 +95,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoMem.Columns()[i],
 				Source: sourceDyno,
-				When:   p.Points[0].(int64),
+				When:   tstamp,
 				Value:  p.Points[i].(float64),
 			})
 		}
@@ -103,7 +105,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoLoad.Columns()[i],
 				Source: sourceDyno,
-				When:   p.Points[0].(int64),
+				When:   tstamp,
 				Value:  p.Points[i].(float64),
 			})
 		}
@@ -112,7 +114,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 		payload.Gauges = append(payload.Gauges, libratoMetric{
 			Name:   fmt.Sprintf("%s.%s.%d", name, p.Points[2], p.Points[3]),
 			Source: source,
-			When:   p.Points[0].(int64),
+			When:   tstamp,
 			Value:  1,
 		})
 	}
