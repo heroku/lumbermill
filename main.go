@@ -64,14 +64,22 @@ func createClients(hostlist string, f clientFunc) []influx.ClientConfig {
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string, f clientFunc) (*hashRing, []*destination, *sync.WaitGroup) {
+func createMessageRoutes(posterType string, f clientFunc) (*hashRing, []*destination, *sync.WaitGroup) {
 	var destinations []*destination
 	posterGroup := new(sync.WaitGroup)
 	hashRing := newHashRing(hashRingReplication, nil)
 
-	influxClients := createClients(hostlist, f)
-	if len(influxClients) == 0 {
-		//No backends, so blackhole things
+	// TODO: really needs some refactoring here.
+	if posterType == "librato" {
+		destination := newDestination("librato", pointChannelCapacity)
+		hashRing.Add(destination)
+		destinations = append(destinations, destination)
+		user := os.Getenv("LIBRATO_OWNER")
+		token := os.Getenv("LIBRATO_TOKEN")
+		poster := newLibratoPoster(user, token, f(), destination, posterGroup)
+		go poster.Run()
+	} else if influxClients := createClients(os.Getenv("INFLUXDB_HOSTS"), f); len(influxClients) == 0 {
+		// No backends, so blackhole things
 		destination := newDestination("null", pointChannelCapacity)
 		hashRing.Add(destination)
 		destinations = append(destinations, destination)
@@ -125,7 +133,7 @@ func newClientFunc() *http.Client {
 }
 
 func main() {
-	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), newClientFunc)
+	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("POSTER"), newClientFunc)
 
 	if os.Getenv("LIBRATO_TOKEN") != "" {
 		go librato.Librato(

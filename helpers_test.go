@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,7 +58,9 @@ func setupInfluxDBTestServer(handler http.Handler) *httptest.Server {
 }
 
 func setupLumbermillTestServer(influxHosts, creds string) (*server, *httptest.Server, []*destination, *sync.WaitGroup) {
-	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, newTestClientFunc)
+	os.Setenv("INFLUXDB_HOSTS", influxHosts)
+
+	hashRing, destinations, waitGroup := createMessageRoutes("influxdb", newTestClientFunc)
 	testServer := httptest.NewServer(nil)
 	lumbermill := newServer(testServer.Config, auth.AnyOrNoAuth{}, hashRing)
 	return lumbermill, testServer, destinations, waitGroup

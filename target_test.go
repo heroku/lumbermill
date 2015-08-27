@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
@@ -112,6 +113,7 @@ func TestTargetWithoutRing(t *testing.T) {
 }
 
 func TestTarget(t *testing.T) {
+	os.Setenv("INFLUXDB_HOSTS", "null")
 	hashRing, _, _ := createMessageRoutes("null", newTestClientFunc)
 	server := newServer(&http.Server{}, auth.AnyOrNoAuth{}, hashRing)
 

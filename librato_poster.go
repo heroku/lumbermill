@@ -21,6 +21,7 @@ const (
 )
 
 type libratoPoster struct {
+	client               *http.Client
 	destination          *destination
 	libratoUser          string
 	libratoToken         string
@@ -41,8 +42,9 @@ type libratoPayload struct {
 	Gauges []libratoMetric `json:"gauges,omitempty"`
 }
 
-func newLibratoPoster(libratoUser, libratoToken string, destination *destination, waitGroup *sync.WaitGroup) *libratoPoster {
+func newLibratoPoster(libratoUser, libratoToken string, client *http.Client, destination *destination, waitGroup *sync.WaitGroup) *libratoPoster {
 	return &libratoPoster{
+		client:               client,
 		destination:          destination,
 		libratoUser:          libratoUser,
 		libratoToken:         libratoToken,
@@ -192,7 +194,7 @@ func (p *libratoPoster) send(payload []byte) (bool, error) {
 	req.SetBasicAuth(p.libratoUser, p.libratoToken)
 
 	// TODO: Maybe we want our own client?
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := p.client.Do(req)
 	if err != nil {
 		return true, err
 	} else {
