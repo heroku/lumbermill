@@ -72,7 +72,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 	name := "lumbrato." + p.Type.Name()
 	source := "lumbrato." + md5sum([]byte(p.Token))
 
-	tstamp := p.Points[0].(int64) / 1000
+	//	tstamp := p.Points[0].(int64) / 1000
 
 	switch p.Type {
 	case routerRequest:
