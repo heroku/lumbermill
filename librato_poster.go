@@ -91,7 +91,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 		})
 	case dynoMem:
 		sourceDyno := source + "." + p.Points[1].(string)
-		for i := 2; i < 8; i++ {
+		for i := 2; i < 6; i++ {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoMem.Columns()[i],
 				Source: sourceDyno,
@@ -99,6 +99,15 @@ func pointsToPayload(p point, payload *libratoPayload) {
 				Value: p.Points[i].(float64),
 			})
 		}
+		for i := 6; i < 8; i++ {
+			payload.Gauges = append(payload.Gauges, libratoMetric{
+				Name:   name + "." + dynoMem.Columns()[i],
+				Source: sourceDyno,
+				//				When:   tstamp,
+				Value: p.Points[i].(int),
+			})
+		}
+
 	case dynoLoad:
 		sourceDyno := source + "." + p.Points[1].(string)
 		for i := 2; i < 6; i++ {
