@@ -110,7 +110,7 @@ func pointsToPayload(p point, payload *libratoPayload) {
 
 	case dynoLoad:
 		sourceDyno := source + "." + p.Points[1].(string)
-		for i := 2; i < 6; i++ {
+		for i := 2; i < 5; i++ {
 			payload.Gauges = append(payload.Gauges, libratoMetric{
 				Name:   name + "." + dynoLoad.Columns()[i],
 				Source: sourceDyno,
