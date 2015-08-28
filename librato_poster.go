@@ -16,7 +16,7 @@ import (
 const (
 	libratoBacklog         = 8 // No more than N pending batches in-flight
 	libratoMaxAttempts     = 4 // Max attempts before dropping batch
-	libratoStartingBackoff = 500 * time.Millisecond
+	libratoStartingBackoff = 50 * time.Millisecond
 	libratoMetricsUrl      = "https://metrics-api.librato.com/v1/metrics"
 )
 
@@ -34,7 +34,7 @@ type libratoPoster struct {
 type libratoMetric struct {
 	Name   string      `json:"name"`
 	Value  interface{} `json:"value"`
-	When   int64       `json:"measure_time"`
+	When   int64       `json:"measure_time,omitempty"`
 	Source string      `json:"source,omitempty"`
 }
 
