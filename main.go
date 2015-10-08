@@ -45,7 +45,7 @@ func createInfluxDBClient(host string, f clientFunc) influx.ClientConfig {
 		Username:   os.Getenv("INFLUXDB_USER"), //"test",
 		Password:   os.Getenv("INFLUXDB_PWD"),  //"tester",
 		Database:   os.Getenv("INFLUXDB_NAME"), //"ingress",
-		IsSecure:   true,
+		IsSecure:   os.Getenv("INFLUXDB_INSECURE") != "true",
 		HttpClient: f(),
 	}
 }
