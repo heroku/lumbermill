@@ -116,6 +116,10 @@ func awaitShutdown(shutdownChan shutdownChan, server *server, posterGroup *sync.
 }
 
 func newClientFunc() *http.Client {
+	if os.Getenv("INFLUXDB_INSECURE") == "true" {
+		return &http.Client{Timeout: defaultClientTimeout}
+	}
+
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: os.Getenv("INFLUXDB_SKIP_VERIFY") == "true"},
