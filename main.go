@@ -117,7 +117,7 @@ func awaitShutdown(shutdownChan shutdownChan, server *server, posterGroup *sync.
 
 func newClientFunc() *http.Client {
 	if os.Getenv("INFLUXDB_INSECURE") == "true" {
-		return &http.Client{Timeout: defaultClientTimeout}
+		return http.DefaultClient
 	}
 
 	return &http.Client{
