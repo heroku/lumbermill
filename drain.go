@@ -85,23 +85,19 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.Header.Get("Logplex-Drain-Token")
-
 	batchCounter.Inc(1)
-
 	defer parseTimer.UpdateSince(time.Now())
 
 	lp := lpx.NewReader(bufio.NewReader(r.Body))
-
 	linesCounterInc := 0
 
 	for lp.Next() {
 		linesCounterInc++
-		destination := s.hashRing.Get(id)
 		envelope, err := logma.LpxToEnvelope(lp, id)
-
 		if err != nil {
 			continue
 		}
+		destination := s.hashRing.Get(envelope.Owner)
 
 		switch envelope.Type {
 		case "RouterError":
