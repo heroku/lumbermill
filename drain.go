@@ -129,7 +129,6 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	batchSizeHistogram.Update(int64(linesCounterInc))
 
 	w.WriteHeader(http.StatusNoContent)
-
 }
 
 // "Parse tree" from hell
