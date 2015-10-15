@@ -1,6 +1,9 @@
 {
 	"ImportPath": "github.com/heroku/lumbermill",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.1",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/apg/lpxgen",
@@ -13,6 +16,10 @@
 		{
 			"ImportPath": "github.com/heroku/authenticater",
 			"Rev": "16ff6099109815e5523480d377232dc6021ba3cf"
+		},
+		{
+			"ImportPath": "github.com/heroku/logma",
+			"Rev": "f0408b1389f128633b0d0a48ae1cb097175aa8a7"
 		},
 		{
 			"ImportPath": "github.com/influxdb/influxdb-go",

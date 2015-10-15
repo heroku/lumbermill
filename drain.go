@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/bmizerany/lpx"
+	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/logma"
 	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/kr/logfmt"
 	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 )
@@ -71,8 +72,65 @@ func handleLogFmtParsingError(msg []byte, err error) {
 	log.Printf("logfmt unmarshal error(%q): %q\n", string(msg), err)
 }
 
-// "Parse tree" from hell
 func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
+	s.Add(1)
+	defer s.Done()
+
+	w.Header().Set("Content-Length", "0")
+
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		wrongMethodErrorCounter.Inc(1)
+		return
+	}
+
+	id := r.Header.Get("Logplex-Drain-Token")
+
+	batchCounter.Inc(1)
+
+	defer parseTimer.UpdateSince(time.Now())
+
+	lp := lpx.NewReader(bufio.NewReader(r.Body))
+
+	linesCounterInc := 0
+
+	for lp.Next() {
+		linesCounterInc++
+		destination := s.hashRing.Get(id)
+		envelope, err := logma.LpxToEnvelope(lp, id)
+
+		if err != nil {
+			continue
+		}
+
+		switch envelope.Type {
+		case "RouterError":
+			routerErrorLinesCounter.Inc(1)
+			re := envelope.Value.(*logma.RouterError)
+			destination.PostPoint(point{envelope.Owner, routerEvent, []interface{}{envelope.Time, re.Code}})
+
+			// Track the breakout of different error types.
+			metrics.GetOrRegisterCounter("lumbermill.lines.router.errors."+re.Code, metrics.DefaultRegistry).Inc(1)
+
+		case "RouterRequest":
+			routerLinesCounter.Inc(1)
+			rr := envelope.Value.(*logma.RouterRequest)
+			destination.PostPoint(point{envelope.Owner, routerRequest, []interface{}{envelope.Time, rr.Status, rr.Service}})
+
+		default:
+			log.Printf("DEFAULT")
+		}
+	}
+
+	linesCounter.Inc(int64(linesCounterInc))
+	batchSizeHistogram.Update(int64(linesCounterInc))
+
+	w.WriteHeader(http.StatusNoContent)
+
+}
+
+// "Parse tree" from hell
+func (s *server) serveDrainClassic(w http.ResponseWriter, r *http.Request) {
 	s.Add(1)
 	defer s.Done()
 
