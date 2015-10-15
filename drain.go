@@ -97,6 +97,13 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+
+		// If we still don't have an id, throw an error and try the next line
+		if envelope.Owner == "" {
+			tokenMissingCounter.Inc(1)
+			continue
+		}
+
 		destination := s.hashRing.Get(envelope.Owner)
 
 		switch envelope.Type {
