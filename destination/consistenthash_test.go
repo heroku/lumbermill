@@ -15,7 +15,7 @@ limitations under the License.
 
 */
 
-package destinations
+package destination
 
 import (
 	"hash/crc32"

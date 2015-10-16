@@ -1,4 +1,4 @@
-package destinations
+package destination
 
 type nullPoster struct {
 	destination *destination

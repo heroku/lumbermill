@@ -10,11 +10,11 @@ import (
 	auth "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/authenticater"
 	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
 	librato "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics/librato"
-	"github.com/heroku/lumbermill/destinations"
+	"github.com/heroku/lumbermill/destination"
 )
 
 func main() {
-	hashRing, dest, posterGroup := destinations.CreateMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), nil)
+	hashRing, dest, posterGroup := destination.CreateMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), nil)
 
 	// Report to librato given LIBRATO_* config vars
 	setupMetrics()
@@ -24,8 +24,8 @@ func main() {
 		log.Fatalf("Unable to parse credentials from CRED_STORE=%q: err=%q", os.Getenv("CRED_STORE"), err)
 	}
 
-	shutdownChan := make(destinations.ShutdownChan)
-	server := destinations.NewServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
+	shutdownChan := make(destination.ShutdownChan)
+	server := destination.NewServer(&http.Server{Addr: ":" + os.Getenv("PORT")}, basicAuther, hashRing)
 
 	log.Printf("Starting up")
 	go server.Run(5 * time.Minute)
@@ -37,8 +37,8 @@ func main() {
 		closers = append(closers, cls)
 	}
 
-	go destinations.AwaitSignals(closers...)
-	destinations.AwaitShutdown(shutdownChan, server, posterGroup)
+	go destination.AwaitSignals(closers...)
+	destination.AwaitShutdown(shutdownChan, server, posterGroup)
 }
 
 func setupMetrics() {

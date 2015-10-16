@@ -20,7 +20,7 @@ Changelog:
 
 */
 
-package destinations
+package destination
 
 import (
 	"hash/fnv"
