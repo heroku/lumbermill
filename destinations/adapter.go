@@ -1,4 +1,4 @@
-package main
+package destinations
 
 import "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/logma"
 

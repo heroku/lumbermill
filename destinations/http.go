@@ -1,4 +1,4 @@
-package main
+package destinations
 
 import (
 	"fmt"
@@ -20,12 +20,19 @@ var influxDbSeriesCheckQueries = []string{
 var healthCheckClientsLock = new(sync.Mutex)
 var healthCheckClients = make(map[string]*influx.Client)
 
+type ShutdownChan chan struct{}
+
+func (s ShutdownChan) Close() error {
+	s <- struct{}{}
+	return nil
+}
+
 type server struct {
 	sync.WaitGroup
 	connectionCloser chan struct{}
-	hashRing         *hashRing
+	hashRing         *HashRing
 	http             *http.Server
-	shutdownChan     shutdownChan
+	shutdownChan     ShutdownChan
 	isShuttingDown   bool
 	credStore        map[string]string
 
@@ -35,10 +42,10 @@ type server struct {
 	recentTokens     map[string]string
 }
 
-func newServer(httpServer *http.Server, ath auth.Authenticater, hashRing *hashRing) *server {
+func NewServer(httpServer *http.Server, ath auth.Authenticater, hashRing *HashRing) *server {
 	s := &server{
 		connectionCloser: make(chan struct{}),
-		shutdownChan:     make(chan struct{}),
+		shutdownChan:     make(ShutdownChan),
 		http:             httpServer,
 		hashRing:         hashRing,
 		credStore:        make(map[string]string),
@@ -203,4 +210,12 @@ func (s *server) awaitShutdown() {
 	<-s.shutdownChan
 	log.Printf("Shutting down.")
 	s.isShuttingDown = true
+}
+
+func AwaitShutdown(shutdownChan ShutdownChan, server *server, posterGroup *sync.WaitGroup) {
+	<-shutdownChan
+	log.Printf("waiting for inflight requests to finish.")
+	server.Wait()
+	posterGroup.Wait()
+	log.Printf("Shutdown complete.")
 }

@@ -20,7 +20,7 @@ Changelog:
 
 */
 
-package main
+package destinations
 
 import (
 	"hash/fnv"
@@ -30,15 +30,15 @@ import (
 
 type hashFn func(data []byte) uint32
 
-type hashRing struct {
+type HashRing struct {
 	hash     hashFn
 	replicas int
 	keys     []int // Sorted
 	hashMap  map[int]*destination
 }
 
-func newHashRing(replicas int, fn hashFn) *hashRing {
-	m := &hashRing{
+func newHashRing(replicas int, fn hashFn) *HashRing {
+	m := &HashRing{
 		replicas: replicas,
 		hash:     fn,
 		hashMap:  make(map[int]*destination),
@@ -56,12 +56,12 @@ func newHashRing(replicas int, fn hashFn) *hashRing {
 }
 
 // Returns true if there are no items available.
-func (m *hashRing) IsEmpty() bool {
+func (m *HashRing) IsEmpty() bool {
 	return len(m.keys) == 0
 }
 
 // Adds some keys to the hash.
-func (m *hashRing) Add(destinations ...*destination) {
+func (m *HashRing) Add(destinations ...*destination) {
 	for _, destination := range destinations {
 		for i := 0; i < m.replicas; i++ {
 			hash := int(m.hash([]byte(strconv.Itoa(i) + destination.Name)))
@@ -73,7 +73,7 @@ func (m *hashRing) Add(destinations ...*destination) {
 }
 
 // Gets the closest item in the hash to the provided key.
-func (m *hashRing) Get(key string) *destination {
+func (m *HashRing) Get(key string) *destination {
 	if m.IsEmpty() {
 		return nil
 	}

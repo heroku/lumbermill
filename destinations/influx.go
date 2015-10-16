@@ -1,4 +1,4 @@
-package main
+package destinations
 
 import (
 	"crypto/tls"
@@ -42,10 +42,14 @@ func createClients(hostlist string, f clientFunc) []influx.ClientConfig {
 }
 
 // Creates destinations and attaches them to posters, which deliver to InfluxDB
-func createMessageRoutes(hostlist string, f clientFunc) (*hashRing, []*destination, *sync.WaitGroup) {
+func CreateMessageRoutes(hostlist string, f clientFunc) (*HashRing, []*destination, *sync.WaitGroup) {
 	var destinations []*destination
 	posterGroup := new(sync.WaitGroup)
 	hashRing := newHashRing(hashRingReplication, nil)
+
+	if f == nil {
+		f = newClientFunc
+	}
 
 	influxClients := createClients(hostlist, f)
 	if len(influxClients) == 0 {
@@ -88,8 +92,6 @@ func newClientFunc() *http.Client {
 	}
 }
 
-type shutdownChan chan struct{}
-
 const (
 	defaultClientTimeout = 20 * time.Second
 	pointChannelCapacity = 500000
@@ -102,12 +104,7 @@ var (
 	debug            = os.Getenv("DEBUG") == "true"
 )
 
-func (s shutdownChan) Close() error {
-	s <- struct{}{}
-	return nil
-}
-
-func awaitSignals(ss ...io.Closer) {
+func AwaitSignals(ss ...io.Closer) {
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-sigCh
@@ -115,12 +112,4 @@ func awaitSignals(ss ...io.Closer) {
 	for _, s := range ss {
 		s.Close()
 	}
-}
-
-func awaitShutdown(shutdownChan shutdownChan, server *server, posterGroup *sync.WaitGroup) {
-	<-shutdownChan
-	log.Printf("waiting for inflight requests to finish.")
-	server.Wait()
-	posterGroup.Wait()
-	log.Printf("Shutdown complete.")
 }

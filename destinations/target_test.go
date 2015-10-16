@@ -1,4 +1,4 @@
-package main
+package destinations
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ func TestTargetWithMultipleAuth(t *testing.T) {
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user1", "pass1")
 	ba.AddPrincipal("user2", "pass2")
-	server := newServer(&http.Server{}, ba, newHashRing(1, nil))
+	server := NewServer(&http.Server{}, ba, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 
@@ -37,7 +37,7 @@ func TestTargetWithMultiplePasswords(t *testing.T) {
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("user", "pass1")
 	ba.AddPrincipal("user", "pass2")
-	server := newServer(&http.Server{}, ba, newHashRing(1, nil))
+	server := NewServer(&http.Server{}, ba, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 
@@ -59,7 +59,7 @@ func TestTargetWithMultiplePasswords(t *testing.T) {
 func TestTargetWithoutAuth(t *testing.T) {
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("foo", "foo")
-	server := newServer(&http.Server{}, ba, nil)
+	server := NewServer(&http.Server{}, ba, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -78,7 +78,7 @@ func TestTargetWithoutId(t *testing.T) {
 	//Setup
 	ba := auth.NewBasicAuth()
 	ba.AddPrincipal("foo", "foo")
-	server := newServer(&http.Server{}, ba, nil)
+	server := NewServer(&http.Server{}, ba, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/", bytes.NewReader([]byte("")))
@@ -95,7 +95,7 @@ func TestTargetWithoutId(t *testing.T) {
 }
 
 func TestTargetWithoutRing(t *testing.T) {
-	server := newServer(&http.Server{}, auth.AnyOrNoAuth{}, newHashRing(1, nil))
+	server := NewServer(&http.Server{}, auth.AnyOrNoAuth{}, newHashRing(1, nil))
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))
@@ -112,8 +112,8 @@ func TestTargetWithoutRing(t *testing.T) {
 }
 
 func TestTarget(t *testing.T) {
-	hashRing, _, _ := createMessageRoutes("null", newTestClientFunc)
-	server := newServer(&http.Server{}, auth.AnyOrNoAuth{}, hashRing)
+	hashRing, _, _ := CreateMessageRoutes("null", newTestClientFunc)
+	server := NewServer(&http.Server{}, auth.AnyOrNoAuth{}, hashRing)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/target/foo", bytes.NewReader([]byte("")))

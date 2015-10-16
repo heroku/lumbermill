@@ -1,4 +1,4 @@
-package main
+package destinations
 
 // Encodes eries Type information
 type seriesType int

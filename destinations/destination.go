@@ -1,10 +1,14 @@
-package main
+package destinations
 
 import (
 	"time"
 
 	"github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/heroku/logma"
 	metrics "github.com/heroku/lumbermill/Godeps/_workspace/src/github.com/rcrowley/go-metrics"
+)
+
+var (
+	droppedErrorCounter = metrics.GetOrRegisterCounter("lumbermill.errors.dropped", metrics.DefaultRegistry)
 )
 
 // A channel of points and related sampling
