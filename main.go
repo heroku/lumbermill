@@ -15,19 +15,8 @@ import (
 func main() {
 	hashRing, destinations, posterGroup := createMessageRoutes(os.Getenv("INFLUXDB_HOSTS"), newClientFunc)
 
-	if os.Getenv("LIBRATO_TOKEN") != "" {
-		go librato.Librato(
-			metrics.DefaultRegistry,
-			20*time.Second,
-			os.Getenv("LIBRATO_OWNER"),
-			os.Getenv("LIBRATO_TOKEN"),
-			os.Getenv("LIBRATO_SOURCE"),
-			[]float64{0.50, 0.95, 0.99},
-			time.Millisecond,
-		)
-	} else if os.Getenv("DEBUG") == "true" {
-		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
-	}
+	// Report to librato given LIBRATO_* config vars
+	setupMetrics()
 
 	basicAuther, err := auth.NewBasicAuthFromString(os.Getenv("CRED_STORE"))
 	if err != nil {
@@ -49,4 +38,20 @@ func main() {
 
 	go awaitSignals(closers...)
 	awaitShutdown(shutdownChan, server, posterGroup)
+}
+
+func setupMetrics() {
+	if os.Getenv("LIBRATO_TOKEN") != "" {
+		go librato.Librato(
+			metrics.DefaultRegistry,
+			20*time.Second,
+			os.Getenv("LIBRATO_OWNER"),
+			os.Getenv("LIBRATO_TOKEN"),
+			os.Getenv("LIBRATO_SOURCE"),
+			[]float64{0.50, 0.95, 0.99},
+			time.Millisecond,
+		)
+	} else if os.Getenv("DEBUG") == "true" {
+		go metrics.Log(metrics.DefaultRegistry, 20e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
+	}
 }
