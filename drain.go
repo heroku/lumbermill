@@ -57,12 +57,20 @@ var (
 	shadowURLs      = make(map[string]*big.Int)
 	shadowPostError = metrics.GetOrRegisterCounter("lumbermill.errors.shadow.post", metrics.DefaultRegistry)
 	shadowMutex     = sync.RWMutex{}
+	httpclient      = http.DefaultClient
 )
 
 func init() {
 	if err := setShadowURLs(strings.Split(os.Getenv("SHADOW_URLS"), ",")); err != nil {
 		log.Println(err)
 	}
+
+	if t := os.Getenv("SHADOW_PROXY_TIMEOUT"); t != "" {
+		t, _ := strconv.Atoi(t)
+		httpclient.Timeout = time.Duration(t) * time.Second
+		log.Printf("==> Shadow Proxy Timeout set to %v", httpclient.Timeout)
+	}
+
 }
 
 func setShadowURLs(urls []string) (err error) {
@@ -387,7 +395,7 @@ func amplify(headers http.Header, buf bytes.Buffer) {
 			}
 		}
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpclient.Do(req)
 		if err != nil {
 			shadowPostError.Inc(1)
 			continue
