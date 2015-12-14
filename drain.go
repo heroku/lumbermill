@@ -3,10 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -47,9 +51,30 @@ var (
 	batchSizeHistogram         = metrics.GetOrRegisterHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 	// The other firehoses we'll want to shove the proxy to.
-	shadowURLs      = strings.Split(os.Getenv("SHADOW_URLS"), ",")
+	shadowURLs      = make(map[string]*big.Int)
 	shadowPostError = metrics.GetOrRegisterCounter("lumbermill.errors.shadow.post", metrics.DefaultRegistry)
 )
+
+func init() {
+	for _, u := range strings.Split(os.Getenv("SHADOW_URLS"), ",") {
+		u, err := url.Parse(u)
+		if err != nil {
+			log.Printf("!! shadowURL: parse error %s", err)
+			continue
+		}
+
+		// We parse the fragment as a percentage of traffic, e.g. #5 == 5%
+		percentage, err := strconv.Atoi(u.Fragment)
+		if err != nil {
+			log.Printf("!! shadowURL: Unable to parse fragment = %s, assuming 100%", u.Fragment)
+		}
+
+		// Clear the fragement for posting.
+		u.Fragment = ""
+
+		shadowURLs[u.String()] = big.NewInt(int64(percentage))
+	}
+}
 
 // Dyno's are generally reported as "<type>.<#>"
 // Extract the <type> and return it
@@ -292,7 +317,11 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 }
 
 func amplify(buf bytes.Buffer) {
-	for _, url := range shadowURLs {
+	for url, perc := range shadowURLs {
+		if !balance(perc) {
+			continue
+		}
+
 		resp, err := http.Post(url, "application/logplex-1", bytes.NewReader(buf.Bytes()))
 		if err != nil {
 			shadowPostError.Inc(1)
@@ -300,4 +329,11 @@ func amplify(buf bytes.Buffer) {
 		}
 		resp.Body.Close()
 	}
+}
+
+var oneHundred = big.NewInt(100)
+
+func balance(perc *big.Int) bool {
+	n, _ := rand.Int(rand.Reader, oneHundred)
+	return n.Cmp(perc) == -1
 }
