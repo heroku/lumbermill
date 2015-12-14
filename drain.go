@@ -80,12 +80,16 @@ func setShadowURLs(urls []string) (err error) {
 		percentage, e := strconv.Atoi(u.Fragment)
 		if e != nil {
 			err = fmt.Errorf("!! shadowURL: Unable to parse fragment = %s, assuming 100%", u.Fragment)
+			percentage = 100
 		}
 
 		// Clear the fragement for posting.
 		u.Fragment = ""
 
 		shadowURLs[u.String()] = big.NewInt(int64(percentage))
+
+		u.User = nil
+		log.Printf("==> Successfully set %s to %d percent", u.String(), percentage)
 	}
 
 	return err
