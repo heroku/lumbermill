@@ -69,6 +69,8 @@ func setShadowURLs(urls []string) (err error) {
 	shadowMutex.Lock()
 	defer shadowMutex.Unlock()
 
+	shadowURLs = make(map[string]*big.Int)
+
 	for _, u := range urls {
 		u, e := url.Parse(u)
 		if e != nil {
@@ -92,6 +94,7 @@ func setShadowURLs(urls []string) (err error) {
 		log.Printf("==> Successfully set %s to %d percent", u.String(), percentage)
 	}
 
+	log.Printf("==> There are %d shadowURLs current set", len(shadowURLs))
 	return err
 }
 
