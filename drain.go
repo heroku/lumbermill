@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -44,6 +45,10 @@ var (
 	unknownUserLinesCounter    = metrics.GetOrRegisterCounter("lumbermill.lines.unknown.user", metrics.DefaultRegistry)
 	parseTimer                 = metrics.GetOrRegisterTimer("lumbermill.batches.parse.time", metrics.DefaultRegistry)
 	batchSizeHistogram         = metrics.GetOrRegisterHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
+
+	// The other firehoses we'll want to shove the proxy to.
+	shadowURLs      = strings.Split(os.Getenv("SHADOW_URLS"), ",")
+	shadowPostError = metrics.GetOrRegisterCounter("lumbermill.errors.shadow.post", metrics.DefaultRegistry)
 )
 
 // Dyno's are generally reported as "<type>.<#>"
@@ -89,7 +94,8 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	batchCounter.Inc(1)
 
 	parseStart := time.Now()
-	lp := lpx.NewReader(bufio.NewReader(r.Body))
+	buf := bytes.Buffer{}
+	lp := lpx.NewReader(bufio.NewReader(io.TeeReader(r.Body, &buf)))
 
 	linesCounterInc := 0
 
@@ -279,5 +285,17 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	parseTimer.UpdateSince(parseStart)
 
+	go amplify(buf)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func amplify(buf bytes.Buffer) {
+	for _, url := range shadowURLs {
+		resp, err := http.Post(url, "application/logplex-1", bytes.NewReader(buf.Bytes()))
+		if err != nil {
+			shadowPostError.Inc(1)
+			continue
+		}
+		resp.Body.Close()
+	}
 }
