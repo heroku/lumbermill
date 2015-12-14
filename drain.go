@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math/big"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -53,20 +56,30 @@ var (
 	// The other firehoses we'll want to shove the proxy to.
 	shadowURLs      = make(map[string]*big.Int)
 	shadowPostError = metrics.GetOrRegisterCounter("lumbermill.errors.shadow.post", metrics.DefaultRegistry)
+	shadowMutex     = sync.RWMutex{}
 )
 
 func init() {
-	for _, u := range strings.Split(os.Getenv("SHADOW_URLS"), ",") {
-		u, err := url.Parse(u)
-		if err != nil {
-			log.Printf("!! shadowURL: parse error %s", err)
+	if err := setShadowURLs(strings.Split(os.Getenv("SHADOW_URLS"), ",")); err != nil {
+		log.Println(err)
+	}
+}
+
+func setShadowURLs(urls []string) (err error) {
+	shadowMutex.Lock()
+	defer shadowMutex.Unlock()
+
+	for _, u := range urls {
+		u, e := url.Parse(u)
+		if e != nil {
+			err = e
 			continue
 		}
 
 		// We parse the fragment as a percentage of traffic, e.g. #5 == 5%
-		percentage, err := strconv.Atoi(u.Fragment)
-		if err != nil {
-			log.Printf("!! shadowURL: Unable to parse fragment = %s, assuming 100%", u.Fragment)
+		percentage, e := strconv.Atoi(u.Fragment)
+		if e != nil {
+			err = fmt.Errorf("!! shadowURL: Unable to parse fragment = %s, assuming 100%", u.Fragment)
 		}
 
 		// Clear the fragement for posting.
@@ -74,6 +87,8 @@ func init() {
 
 		shadowURLs[u.String()] = big.NewInt(int64(percentage))
 	}
+
+	return err
 }
 
 // Dyno's are generally reported as "<type>.<#>"
@@ -317,8 +332,34 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *server) serveShadowURLs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var urls []string
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&urls); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := setShadowURLs(urls); err != nil {
+		log.Println(err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getShadowURLs() map[string]*big.Int {
+	shadowMutex.RLock()
+	urls := shadowURLs
+	shadowMutex.RUnlock()
+	return urls
+}
+
 func amplify(drainToken string, buf bytes.Buffer) {
-	for url, perc := range shadowURLs {
+	for url, perc := range getShadowURLs() {
 		if !balance(perc) {
 			continue
 		}

@@ -58,6 +58,7 @@ func newServer(httpServer *http.Server, ath auth.Authenticater, hashRing *hashRi
 	mux.HandleFunc("/health", s.serveHealth)
 	mux.HandleFunc("/health/influxdb", auth.WrapAuth(ath, s.serveInfluxDBHealth))
 	mux.HandleFunc("/target/", auth.WrapAuth(ath, s.serveTarget))
+	mux.HandleFunc("/shadow-urls", auth.WrapAuth(ath, s.serveShadowURLs))
 
 	s.http.Handler = mux
 
