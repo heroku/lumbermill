@@ -115,6 +115,7 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.Header.Get("Logplex-Drain-Token")
+	drainToken := id
 
 	batchCounter.Inc(1)
 
@@ -311,18 +312,26 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 	parseTimer.UpdateSince(parseStart)
 
 	if len(shadowURLs) > 0 {
-		go amplify(buf)
+		go amplify(drainToken, buf)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func amplify(buf bytes.Buffer) {
+func amplify(drainToken string, buf bytes.Buffer) {
 	for url, perc := range shadowURLs {
 		if !balance(perc) {
 			continue
 		}
 
-		resp, err := http.Post(url, "application/logplex-1", bytes.NewReader(buf.Bytes()))
+		req, err := http.NewRequest("POST", url, bytes.NewReader(buf.Bytes()))
+		if err != nil {
+			shadowPostError.Inc(1)
+			continue
+		}
+		req.Header.Add("Logplex-Drain-Token", drainToken)
+		req.Header.Add("Content-Type", defaultContentType)
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			shadowPostError.Inc(1)
 			continue
@@ -331,7 +340,11 @@ func amplify(buf bytes.Buffer) {
 	}
 }
 
+// Optimization to avoid creating a new big.Int var for every request.
 var oneHundred = big.NewInt(100)
+
+// The content type firehose apps are expected to receive.
+const defaultContentType = "application/logplex-1"
 
 func balance(perc *big.Int) bool {
 	n, _ := rand.Int(rand.Reader, oneHundred)
