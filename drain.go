@@ -285,7 +285,9 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 
 	parseTimer.UpdateSince(parseStart)
 
-	go amplify(buf)
+	if len(shadowURLs) > 0 {
+		go amplify(buf)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
