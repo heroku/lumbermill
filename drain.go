@@ -370,6 +370,11 @@ func amplify(headers http.Header, buf bytes.Buffer) {
 		}
 
 		for key, values := range headers {
+			// Blacklist authorization header
+			if strings.ToUpper(key) == "AUTHORIZATION" {
+				continue
+			}
+
 			for _, value := range values {
 				req.Header.Add(key, value)
 			}
