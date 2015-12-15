@@ -3,12 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"math/big"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,7 +53,7 @@ var (
 	batchSizeHistogram         = metrics.GetOrRegisterHistogram("lumbermill.batches.sizes", metrics.DefaultRegistry, metrics.NewUniformSample(100))
 
 	// The other firehoses we'll want to shove the proxy to.
-	shadowURLs      = make(map[string]*big.Int)
+	shadowURLs      = make(map[string]int)
 	shadowPostError = metrics.GetOrRegisterCounter("lumbermill.errors.shadow.post", metrics.DefaultRegistry)
 	shadowMutex     = sync.RWMutex{}
 	httpclient      = http.DefaultClient
@@ -77,7 +76,7 @@ func setShadowURLs(urls []string) (err error) {
 	shadowMutex.Lock()
 	defer shadowMutex.Unlock()
 
-	shadowURLs = make(map[string]*big.Int)
+	shadowURLs = make(map[string]int)
 
 	for _, u := range urls {
 		u, e := url.Parse(u)
@@ -96,7 +95,7 @@ func setShadowURLs(urls []string) (err error) {
 		// Clear the fragement for posting.
 		u.Fragment = ""
 
-		shadowURLs[u.String()] = big.NewInt(int64(percentage))
+		shadowURLs[u.String()] = percentage
 
 		u.User = nil
 		log.Printf("==> Successfully set %s to %d percent", u.String(), percentage)
@@ -347,6 +346,12 @@ func (s *server) serveDrain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) serveShadowURLs(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		encoder := json.NewEncoder(w)
+		encoder.Encode(shadowURLs)
+		return
+	}
+
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -365,7 +370,7 @@ func (s *server) serveShadowURLs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getShadowURLs() map[string]*big.Int {
+func getShadowURLs() map[string]int {
 	shadowMutex.RLock()
 	urls := shadowURLs
 	shadowMutex.RUnlock()
@@ -404,10 +409,6 @@ func amplify(headers http.Header, buf bytes.Buffer) {
 	}
 }
 
-// Optimization to avoid creating a new big.Int var for every request.
-var oneHundred = big.NewInt(100)
-
-func balance(perc *big.Int) bool {
-	n, _ := rand.Int(rand.Reader, oneHundred)
-	return n.Cmp(perc) == -1
+func balance(perc int) bool {
+	return perc < rand.Intn(100)
 }
