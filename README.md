@@ -1,3 +1,6 @@
+# DEPRECATED: See [the blog post](https://engineering.heroku.com/blogs/2016-05-26-heroku-metrics-there-and-back-again/) for more information.
+
+
 [![Travis](https://img.shields.io/travis/heroku/lumbermill.svg)](https://travis-ci.org/heroku/lumbermill)
 [![GoDoc](https://godoc.org/github.com/heroku/lumbermill?status.svg)](http://godoc.org/github.com/heroku/lumbermill)
 
