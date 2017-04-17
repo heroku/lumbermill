@@ -1,4 +1,4 @@
-package main
+package destination
 
 import (
 	"log"
@@ -63,8 +63,10 @@ func (p *poster) nextDelivery(timeout *time.Ticker) (delivery map[string]*influx
 	delivery = make(map[string]*influx.Series)
 	for {
 		select {
-		case point, open := <-p.destination.points:
+		case envelope, open := <-p.destination.envelopes:
 			if open {
+				point := envelopeToPoint(envelope)
+
 				seriesName := point.SeriesName()
 				series, found := delivery[seriesName]
 				if !found {

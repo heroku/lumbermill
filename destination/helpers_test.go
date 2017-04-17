@@ -1,4 +1,4 @@
-package main
+package destination
 
 import (
 	"crypto/tls"
@@ -57,9 +57,9 @@ func setupInfluxDBTestServer(handler http.Handler) *httptest.Server {
 }
 
 func setupLumbermillTestServer(influxHosts, creds string) (*server, *httptest.Server, []*destination, *sync.WaitGroup) {
-	hashRing, destinations, waitGroup := createMessageRoutes(influxHosts, newTestClientFunc)
+	hashRing, destinations, waitGroup := CreateMessageRoutes(influxHosts, newTestClientFunc)
 	testServer := httptest.NewServer(nil)
-	lumbermill := newServer(testServer.Config, auth.AnyOrNoAuth{}, hashRing)
+	lumbermill := NewServer(testServer.Config, auth.AnyOrNoAuth{}, hashRing)
 	return lumbermill, testServer, destinations, waitGroup
 }
 

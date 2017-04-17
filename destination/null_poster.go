@@ -1,4 +1,4 @@
-package main
+package destination
 
 type nullPoster struct {
 	destination *destination
@@ -13,6 +13,6 @@ func newNullPoster(destination *destination) *nullPoster {
 }
 
 func (p *nullPoster) Run() {
-	for _ = range p.destination.points {
+	for _ = range p.destination.envelopes {
 	}
 }

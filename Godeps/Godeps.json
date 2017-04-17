@@ -18,6 +18,10 @@
 			"Rev": "16ff6099109815e5523480d377232dc6021ba3cf"
 		},
 		{
+			"ImportPath": "github.com/heroku/logma",
+			"Rev": "f0408b1389f128633b0d0a48ae1cb097175aa8a7"
+		},
+		{
 			"ImportPath": "github.com/influxdb/influxdb-go",
 			"Rev": "23dc106e2636171db26f6a9296e8a52769726b65"
 		},

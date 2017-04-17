@@ -1,4 +1,4 @@
-package main
+package destination
 
 import (
 	"crypto/tls"
@@ -67,7 +67,7 @@ func TestLumbermillDrain(t *testing.T) {
 	}()
 
 	lumbermill, testServer, destinations, waitGroup := setupLumbermillTestServer(influxHost, "user:pass")
-	shutdownChan := make(shutdownChan)
+	shutdownChan := make(chan struct{})
 
 	defer func() {
 		influxdb.Close()
@@ -96,12 +96,12 @@ func TestLumbermillDrain(t *testing.T) {
 		}
 
 		// Shutdown by calling Close() on both shutdownChan and lumbermill
-		shutdownChan.Close()
+		close(shutdownChan)
 		lumbermill.Close()
 		for _, d := range destinations {
 			d.Close()
 		}
 	}()
 
-	awaitShutdown(shutdownChan, lumbermill, waitGroup)
+	AwaitShutdown(shutdownChan, lumbermill, waitGroup)
 }
